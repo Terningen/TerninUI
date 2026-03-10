@@ -1,0 +1,12 @@
+## Interface: 120000
+## Title: |cFF00A2FFTerninUI|r
+## Notes: Custom health bar with Rage markers.
+## Author: Ternin
+## Version: 1.0
+## IconTexture: Interface\AddOns\TerninUI\TerninUI
+## SavedVariablesPerCharacter: TerninUI_Config
+
+Core.lua
+Bars.lua
+ExtraButtons.lua
+Options.lua
