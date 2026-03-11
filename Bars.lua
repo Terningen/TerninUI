@@ -27,7 +27,7 @@ end
 ------------------------------------------------------------
 
 local container = CreateFrame("Frame", "TerninUI_Container", UIParent)
-container:SetSize(TerninUI_Config.barWidth or DEFAULT_CONFIG.barWidth, 10)
+container:SetSize(150, 10)
 ns.container = container
 
 local function ApplyContainerPosition()
@@ -61,10 +61,8 @@ ns.barFrames = barFrames
 function ns.ApplyLockState()
     if TerninUI_Config.locked then
         container:EnableMouse(false)
-        if ns.ebContainer then ns.ebContainer:EnableMouse(false) end
     else
         container:EnableMouse(true)
-        if ns.ebContainer then ns.ebContainer:EnableMouse(true) end
     end
 end
 
@@ -86,7 +84,7 @@ end)
 
 function ns.LayoutBars()
     local c = TerninUI_Config
-    container:SetWidth(c.barWidth or DEFAULT_CONFIG.barWidth)
+    local maxWidth = 0
 
     local totalHeight = 0
     local previousBar
@@ -95,9 +93,11 @@ function ns.LayoutBars()
         local def = (c.bars and c.bars[i]) or bar.def
         if def and def.enabled ~= false then
             local h = def.height or 18
+            local w = def.width or 150
+            if w > maxWidth then maxWidth = w end
+
             bar:Show()
             bar:ClearAllPoints()
-            local w = c.barWidth or DEFAULT_CONFIG.barWidth
             bar:SetSize(w, h)
 
             local bc = def.color or DEFAULT_CONFIG.bars[i] and DEFAULT_CONFIG.bars[i].color or {1, 1, 1, 1}
@@ -124,9 +124,9 @@ function ns.LayoutBars()
                 bar.marker:Hide()
             end
 
-            local gbg = c.globalBgColor or DEFAULT_CONFIG.globalBgColor
-            local alpha = (c.globalBgAlpha ~= nil) and (c.globalBgAlpha / 100) or 0.6
-            bar.bg:SetColorTexture(gbg[1] or 0, gbg[2] or 0, gbg[3] or 0, alpha)
+            local bg = def.bgColor or {0, 0, 0, 1}
+            local alpha = (def.bgAlpha ~= nil) and (def.bgAlpha / 100) or 0
+            bar.bg:SetColorTexture(bg[1] or 0, bg[2] or 0, bg[3] or 0, alpha)
 
             if not previousBar then
                 bar:SetPoint("TOP", container, "TOP", 0, 0)
@@ -142,6 +142,9 @@ function ns.LayoutBars()
         end
     end
 
+    if maxWidth > 0 then
+        container:SetWidth(maxWidth)
+    end
     if totalHeight <= 0 then
         totalHeight = 10
     end
@@ -163,9 +166,9 @@ local function CreateBars()
 
         bar.bg = bar:CreateTexture(nil, "BACKGROUND")
         bar.bg:SetAllPoints(true)
-        local gbg = TerninUI_Config.globalBgColor or DEFAULT_CONFIG.globalBgColor
-        local alpha = (TerninUI_Config.globalBgAlpha ~= nil) and (TerninUI_Config.globalBgAlpha / 100) or 0.6
-        bar.bg:SetColorTexture(gbg[1] or 0, gbg[2] or 0, gbg[3] or 0, alpha)
+        local bg = def.bgColor or {0, 0, 0, 1}
+        local alpha = (def.bgAlpha ~= nil) and (def.bgAlpha / 100) or 0
+        bar.bg:SetColorTexture(bg[1] or 0, bg[2] or 0, bg[3] or 0, alpha)
 
         bar.text = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
         bar.text:SetPoint("CENTER", bar, "CENTER")
@@ -216,7 +219,8 @@ local function UpdateResourceBar(bar, def)
         max = UnitPowerMax(PLAYER_UNIT, POWER_RUNIC_POWER)
     elseif def.resource == "absorb" then
         cur = UnitGetTotalAbsorbs(PLAYER_UNIT) or 0
-        max = (UnitHealthMax(PLAYER_UNIT) or 1) * 0.3
+        local pct = (def.absorbMaxPercent or 30) / 100
+        max = (UnitHealthMax(PLAYER_UNIT) or 1) * pct
     else
         return
     end
@@ -231,7 +235,7 @@ local function UpdateResourceBar(bar, def)
         local val = def.markerValue or def.markerPercent or 0
         local pct = (val / max) * 100
         if pct > 0 and pct < 100 then
-            local w = TerninUI_Config.barWidth or DEFAULT_CONFIG.barWidth
+            local w = def.width or 150
             local h = def.height or 18
             local mc = def.markerColor or DEFAULT_CONFIG.bars[2].markerColor or {1, 1, 1, 0.9}
             bar.marker:SetColorTexture(mc[1] or 1, mc[2] or 1, mc[3] or 1, mc[4] or 0.9)
@@ -281,8 +285,6 @@ container:SetScript("OnEvent", function(self, event, arg1, ...)
     if event == "PLAYER_ENTERING_WORLD" then
         ApplyContainerPosition()
         ns.LayoutBars()
-        if ns.ApplyEBPosition then ns.ApplyEBPosition() end
-        if ns.LayoutExtraButtons then ns.LayoutExtraButtons() end
     end
 
     if event == "UNIT_HEALTH" or event == "UNIT_MAXHEALTH" or

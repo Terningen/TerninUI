@@ -8,10 +8,7 @@ ns.PLAYER_UNIT = "player"
 
 ns.DEFAULT_CONFIG = {
     locked = false,
-    barWidth = 150,
     barSpacing = 0,
-    globalBgColor = {0, 0, 0, 1},
-    globalBgAlpha = 0,
     position = {
         point = "CENTER",
         relativePoint = "CENTER",
@@ -26,6 +23,9 @@ ns.DEFAULT_CONFIG = {
             label = "Health Bar",
             color = { 0.1, 0.8, 0.1, 1 },
             height = 10,
+            width = 150,
+            bgColor = {0, 0, 0, 1},
+            bgAlpha = 30,
             enabled = true,
         },
         {
@@ -35,6 +35,9 @@ ns.DEFAULT_CONFIG = {
             label = "Rage",
             color = {0.9, 0.1, 0.1, 1},
             height = 10,
+            width = 150,
+            bgColor = {0, 0, 0, 1},
+            bgAlpha = 30,
             enabled = true,
             markerEnabled = false,
             markerValue = 30,
@@ -47,19 +50,11 @@ ns.DEFAULT_CONFIG = {
             label = "Shield Pool",
             color = {0.9, 0.85, 0.2, 1},
             height = 10,
+            width = 150,
+            bgColor = {0, 0, 0, 1},
+            bgAlpha = 30,
+            absorbMaxPercent = 30,
             enabled = true,
-        },
-    },
-    extraButtons = {
-        enabled = true,
-        iconSize = 32,
-        spacing = 2,
-        spellIDs = {},
-        position = {
-            point = "CENTER",
-            relativePoint = "CENTER",
-            x = 0,
-            y = -160,
         },
     },
 }
@@ -106,6 +101,9 @@ end
 local function EnsureBars()
     local defaults = ns.DEFAULT_CONFIG.bars
     local bars = TerninUI_Config.bars
+    local oldBarWidth = TerninUI_Config.barWidth
+    local oldBgColor = TerninUI_Config.globalBgColor
+    local oldBgAlpha = TerninUI_Config.globalBgAlpha
     if #bars > 3 then
         for i = 4, #bars do bars[i] = nil end
     end
@@ -113,16 +111,14 @@ local function EnsureBars()
         if not bars[i] then
             bars[i] = ns.CopyTable(defaults[i] or defaults[1])
         else
+            if oldBarWidth and bars[i].width == nil then bars[i].width = oldBarWidth end
+            if oldBgColor and bars[i].bgColor == nil then bars[i].bgColor = oldBgColor end
+            if oldBgAlpha ~= nil and bars[i].bgAlpha == nil then bars[i].bgAlpha = oldBgAlpha end
             ns.MergeDefaults(bars[i], defaults[i] or defaults[1])
         end
     end
     if bars[3] and bars[3].type == "buff" then
         bars[3] = ns.CopyTable(defaults[3])
-    end
-    if not TerninUI_Config.extraButtons then
-        TerninUI_Config.extraButtons = ns.CopyTable(ns.DEFAULT_CONFIG.extraButtons)
-    else
-        ns.MergeDefaults(TerninUI_Config.extraButtons, ns.DEFAULT_CONFIG.extraButtons)
     end
 end
 EnsureBars()

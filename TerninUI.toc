@@ -1,6 +1,6 @@
 ## Interface: 120000
 ## Title: |cFF00A2FFTerninUI|r
-## Notes: Minimal resource bars (health, power, absorb shields) and a row of spell cooldown tracker icons.
+## Notes: Minimal resource bars (health, power, absorb shields).
 ## Author: Ternin
 ## Version: 1.0
 ## IconTexture: Interface\AddOns\TerninUI\TerninUI
@@ -9,5 +9,4 @@
 
 Core.lua
 Bars.lua
-ExtraButtons.lua
 Options.lua
