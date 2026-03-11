@@ -1,10 +1,11 @@
 ## Interface: 120000
 ## Title: |cFF00A2FFTerninUI|r
-## Notes: Custom health bar with Rage markers.
+## Notes: Minimal resource bars (health, power, absorb shields) and a row of spell cooldown tracker icons.
 ## Author: Ternin
 ## Version: 1.0
 ## IconTexture: Interface\AddOns\TerninUI\TerninUI
 ## SavedVariablesPerCharacter: TerninUI_Config
+## X-License: MIT
 
 Core.lua
 Bars.lua
