@@ -1,6 +1,6 @@
 ## Interface: 120000
 ## Title: |cFF00A2FFTerninUI|r
-## Notes: Minimal resource bars (health, power, absorb shields).
+## Notes: Lightweight addon with clean, minimal resource bars (health, power, absorb shields). Draggable and configurable via /tui.
 ## Author: Ternin
 ## Version: 1.0
 ## IconTexture: Interface\AddOns\TerninUI\TerninUI

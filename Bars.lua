@@ -1,30 +1,31 @@
+--[[
+    TerninUI - Bars
+    Bar container, layout, and resource updates.
+]]
+
 local ADDON_NAME, ns = ...
 local PLAYER_UNIT = ns.PLAYER_UNIT
 local DEFAULT_CONFIG = ns.DEFAULT_CONFIG
 
-------------------------------------------------------------
--- Power type constants
-------------------------------------------------------------
+-- ---------------------------------------------------------------------------
+-- Power type mapping (resource name -> WoW power type enum)
+-- ---------------------------------------------------------------------------
 
-local POWER_RAGE        = (Enum and Enum.PowerType and Enum.PowerType.Rage)       or 1
-local POWER_MANA        = (Enum and Enum.PowerType and Enum.PowerType.Mana)       or 0
-local POWER_ENERGY      = (Enum and Enum.PowerType and Enum.PowerType.Energy)     or 3
-local POWER_FOCUS       = (Enum and Enum.PowerType and Enum.PowerType.Focus)      or 2
-local POWER_RUNIC_POWER = (Enum and Enum.PowerType and Enum.PowerType.RunicPower) or 6
+local POWER_TYPES = {
+    rage        = (Enum and Enum.PowerType and Enum.PowerType.Rage)       or 1,
+    mana        = (Enum and Enum.PowerType and Enum.PowerType.Mana)       or 0,
+    energy      = (Enum and Enum.PowerType and Enum.PowerType.Energy)     or 3,
+    focus       = (Enum and Enum.PowerType and Enum.PowerType.Focus)     or 2,
+    runic_power = (Enum and Enum.PowerType and Enum.PowerType.RunicPower) or 6,
+}
 
 local function GetPowerTypeForResource(resource)
-    if resource == "rage" then return POWER_RAGE
-    elseif resource == "mana" then return POWER_MANA
-    elseif resource == "energy" then return POWER_ENERGY
-    elseif resource == "focus" then return POWER_FOCUS
-    elseif resource == "runic_power" then return POWER_RUNIC_POWER
-    end
-    return nil
+    return resource and POWER_TYPES[resource]
 end
 
-------------------------------------------------------------
+-- ---------------------------------------------------------------------------
 -- Bar container
-------------------------------------------------------------
+-- ---------------------------------------------------------------------------
 
 local container = CreateFrame("Frame", "TerninUI_Container", UIParent)
 container:SetSize(150, 10)
@@ -78,9 +79,9 @@ container:SetScript("OnDragStop", function(self)
     C_Timer.After(0, SaveContainerPosition)
 end)
 
-------------------------------------------------------------
+-- ---------------------------------------------------------------------------
 -- Bar layout and creation
-------------------------------------------------------------
+-- ---------------------------------------------------------------------------
 
 function ns.LayoutBars()
     local c = TerninUI_Config
@@ -192,31 +193,20 @@ end
 CreateBars()
 ns.ApplyLockState()
 
-------------------------------------------------------------
+-- ---------------------------------------------------------------------------
 -- Resource bar updates
-------------------------------------------------------------
+-- ---------------------------------------------------------------------------
 
 local function UpdateResourceBar(bar, def)
     local cur, max
 
+    local powerType = GetPowerTypeForResource(def.resource)
     if def.resource == "health" then
         cur = UnitHealth(PLAYER_UNIT)
         max = UnitHealthMax(PLAYER_UNIT)
-    elseif def.resource == "mana" then
-        cur = UnitPower(PLAYER_UNIT, POWER_MANA)
-        max = UnitPowerMax(PLAYER_UNIT, POWER_MANA)
-    elseif def.resource == "rage" then
-        cur = UnitPower(PLAYER_UNIT, POWER_RAGE)
-        max = UnitPowerMax(PLAYER_UNIT, POWER_RAGE)
-    elseif def.resource == "energy" then
-        cur = UnitPower(PLAYER_UNIT, POWER_ENERGY)
-        max = UnitPowerMax(PLAYER_UNIT, POWER_ENERGY)
-    elseif def.resource == "focus" then
-        cur = UnitPower(PLAYER_UNIT, POWER_FOCUS)
-        max = UnitPowerMax(PLAYER_UNIT, POWER_FOCUS)
-    elseif def.resource == "runic_power" then
-        cur = UnitPower(PLAYER_UNIT, POWER_RUNIC_POWER)
-        max = UnitPowerMax(PLAYER_UNIT, POWER_RUNIC_POWER)
+    elseif powerType then
+        cur = UnitPower(PLAYER_UNIT, powerType)
+        max = UnitPowerMax(PLAYER_UNIT, powerType)
     elseif def.resource == "absorb" then
         cur = UnitGetTotalAbsorbs(PLAYER_UNIT) or 0
         local pct = (def.absorbMaxPercent or 30) / 100
@@ -268,9 +258,9 @@ function ns.UpdateAllBars(event, unit)
     end
 end
 
-------------------------------------------------------------
+-- ---------------------------------------------------------------------------
 -- Events
-------------------------------------------------------------
+-- ---------------------------------------------------------------------------
 
 container:RegisterEvent("PLAYER_ENTERING_WORLD")
 container:RegisterEvent("UNIT_HEALTH")

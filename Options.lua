@@ -1,6 +1,10 @@
+--[[
+    TerninUI - Options
+    Settings UI, panel builders, and options refresh.
+]]
+
 local ADDON_NAME, ns = ...
 local DEFAULT_CONFIG = ns.DEFAULT_CONFIG
-local CopyTable = ns.CopyTable
 local LayoutBars = ns.LayoutBars
 local UpdateAllBars = ns.UpdateAllBars
 local ApplyLockState = ns.ApplyLockState
@@ -9,9 +13,9 @@ local barFrames = ns.barFrames
 local PAD = 24
 local OPTIONS_CONTENT_H = 600
 
-------------------------------------------------------------
+-- ---------------------------------------------------------------------------
 -- UI helpers
-------------------------------------------------------------
+-- ---------------------------------------------------------------------------
 
 local function CreateSubcategoryWrapper(name, contentH)
     contentH = contentH or 600
@@ -144,6 +148,30 @@ end
 
 local optionsRefs = {}
 
+-- Creates a 0-100% backdrop transparency slider for a bar.
+local function CreateBgAlphaSlider(panel, barIndex, anchor)
+    local slider = CreateFrame("Slider", "TerninUI_BgAlpha" .. barIndex, panel, "OptionsSliderTemplate")
+    slider:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -28)
+    slider:SetPoint("RIGHT", panel, "RIGHT", -PAD, 0)
+    slider:SetMinMaxValues(0, 100)
+    slider:SetValueStep(5)
+    _G[slider:GetName() .. "Low"]:SetText("0%")
+    _G[slider:GetName() .. "High"]:SetText("100%")
+    _G[slider:GetName() .. "Text"]:SetText("Backdrop transparency")
+    slider:SetScript("OnValueChanged", function(self, value)
+        value = math.floor(value + 0.5)
+        TerninUI_Config.bars[barIndex].bgAlpha = value
+        _G[self:GetName() .. "Text"]:SetText("Backdrop transparency: " .. value .. "%")
+        LayoutBars()
+    end)
+    local def = DEFAULT_CONFIG.bars[barIndex]
+    local v = TerninUI_Config.bars[barIndex].bgAlpha
+    if v == nil then v = def and def.bgAlpha or 0 end
+    slider:SetValue(v)
+    _G[slider:GetName() .. "Text"]:SetText("Backdrop transparency: " .. v .. "%")
+    CleanSliderStyle(slider)
+    return slider
+end
 
 local function CreateWidthSlider(panel, index, anchor, labelText)
     local slider = CreateFrame("Slider", "$parent_" .. labelText:gsub("%s+", "") .. "Width", panel, "OptionsSliderTemplate")
@@ -299,28 +327,7 @@ local function BuildHealthPanel(panel)
     end)
     optionsRefs.healthBgColorBtn = healthBgColorBtn
 
-    local healthBgAlphaSlider = CreateFrame("Slider", "$parent_HealthBgAlpha", panel, "OptionsSliderTemplate")
-    healthBgAlphaSlider:SetPoint("TOPLEFT", healthBgColorBtn, "BOTTOMLEFT", 0, -28)
-    healthBgAlphaSlider:SetPoint("RIGHT", panel, "RIGHT", -PAD, 0)
-    healthBgAlphaSlider:SetMinMaxValues(0, 100)
-    healthBgAlphaSlider:SetValueStep(5)
-    _G[healthBgAlphaSlider:GetName() .. "Low"]:SetText("0%")
-    _G[healthBgAlphaSlider:GetName() .. "High"]:SetText("100%")
-    _G[healthBgAlphaSlider:GetName() .. "Text"]:SetText("Backdrop transparency")
-    healthBgAlphaSlider:SetScript("OnValueChanged", function(self, value)
-        value = math.floor(value + 0.5)
-        TerninUI_Config.bars[1].bgAlpha = value
-        _G[self:GetName() .. "Text"]:SetText("Backdrop transparency: " .. value .. "%")
-        LayoutBars()
-    end)
-    do
-        local v = TerninUI_Config.bars[1].bgAlpha
-        if v == nil then v = DEFAULT_CONFIG.bars[1].bgAlpha or 0 end
-        healthBgAlphaSlider:SetValue(v)
-        _G[healthBgAlphaSlider:GetName() .. "Text"]:SetText("Backdrop transparency: " .. v .. "%")
-    end
-    CleanSliderStyle(healthBgAlphaSlider)
-    optionsRefs.healthBgAlphaSlider = healthBgAlphaSlider
+    optionsRefs.healthBgAlphaSlider = CreateBgAlphaSlider(panel, 1, healthBgColorBtn)
 end
 
 local function BuildPowerPanel(panel)
@@ -524,28 +531,7 @@ local function BuildPowerPanel(panel)
     end)
     optionsRefs.powerBgColorBtn = powerBgColorBtn
 
-    local powerBgAlphaSlider = CreateFrame("Slider", "$parent_PowerBgAlpha", panel, "OptionsSliderTemplate")
-    powerBgAlphaSlider:SetPoint("TOPLEFT", powerBgColorBtn, "BOTTOMLEFT", 0, -28)
-    powerBgAlphaSlider:SetPoint("RIGHT", panel, "RIGHT", -PAD, 0)
-    powerBgAlphaSlider:SetMinMaxValues(0, 100)
-    powerBgAlphaSlider:SetValueStep(5)
-    _G[powerBgAlphaSlider:GetName() .. "Low"]:SetText("0%")
-    _G[powerBgAlphaSlider:GetName() .. "High"]:SetText("100%")
-    _G[powerBgAlphaSlider:GetName() .. "Text"]:SetText("Backdrop transparency")
-    powerBgAlphaSlider:SetScript("OnValueChanged", function(self, value)
-        value = math.floor(value + 0.5)
-        TerninUI_Config.bars[2].bgAlpha = value
-        _G[self:GetName() .. "Text"]:SetText("Backdrop transparency: " .. value .. "%")
-        LayoutBars()
-    end)
-    do
-        local v = TerninUI_Config.bars[2].bgAlpha
-        if v == nil then v = DEFAULT_CONFIG.bars[2].bgAlpha or 0 end
-        powerBgAlphaSlider:SetValue(v)
-        _G[powerBgAlphaSlider:GetName() .. "Text"]:SetText("Backdrop transparency: " .. v .. "%")
-    end
-    CleanSliderStyle(powerBgAlphaSlider)
-    optionsRefs.powerBgAlphaSlider = powerBgAlphaSlider
+    optionsRefs.powerBgAlphaSlider = CreateBgAlphaSlider(panel, 2, powerBgColorBtn)
 end
 
 local function BuildAbsorbPanel(panel)
@@ -613,33 +599,12 @@ local function BuildAbsorbPanel(panel)
     end)
     optionsRefs.absorbBgColorBtn = absorbBgColorBtn
 
-    local absorbBgAlphaSlider = CreateFrame("Slider", "$parent_AbsorbBgAlpha", panel, "OptionsSliderTemplate")
-    absorbBgAlphaSlider:SetPoint("TOPLEFT", absorbBgColorBtn, "BOTTOMLEFT", 0, -28)
-    absorbBgAlphaSlider:SetPoint("RIGHT", panel, "RIGHT", -PAD, 0)
-    absorbBgAlphaSlider:SetMinMaxValues(0, 100)
-    absorbBgAlphaSlider:SetValueStep(5)
-    _G[absorbBgAlphaSlider:GetName() .. "Low"]:SetText("0%")
-    _G[absorbBgAlphaSlider:GetName() .. "High"]:SetText("100%")
-    _G[absorbBgAlphaSlider:GetName() .. "Text"]:SetText("Backdrop transparency")
-    absorbBgAlphaSlider:SetScript("OnValueChanged", function(self, value)
-        value = math.floor(value + 0.5)
-        TerninUI_Config.bars[3].bgAlpha = value
-        _G[self:GetName() .. "Text"]:SetText("Backdrop transparency: " .. value .. "%")
-        LayoutBars()
-    end)
-    do
-        local v = TerninUI_Config.bars[3].bgAlpha
-        if v == nil then v = DEFAULT_CONFIG.bars[3].bgAlpha or 0 end
-        absorbBgAlphaSlider:SetValue(v)
-        _G[absorbBgAlphaSlider:GetName() .. "Text"]:SetText("Backdrop transparency: " .. v .. "%")
-    end
-    CleanSliderStyle(absorbBgAlphaSlider)
-    optionsRefs.absorbBgAlphaSlider = absorbBgAlphaSlider
+    optionsRefs.absorbBgAlphaSlider = CreateBgAlphaSlider(panel, 3, absorbBgColorBtn)
 end
 
-------------------------------------------------------------
--- Settings registration
-------------------------------------------------------------
+-- ---------------------------------------------------------------------------
+-- Settings registration (WoW Settings UI or legacy Interface Options)
+-- ---------------------------------------------------------------------------
 
 local healthWrapper, powerWrapper, buffBarsWrapper
 local optionsWrapper, optionsContent
@@ -734,9 +699,9 @@ else
     end
 end
 
-------------------------------------------------------------
--- Options refresh
-------------------------------------------------------------
+-- ---------------------------------------------------------------------------
+-- Options refresh (syncs UI controls with saved config)
+-- ---------------------------------------------------------------------------
 
 function OptionsRefresh()
     local c = TerninUI_Config
@@ -903,9 +868,9 @@ end
 
 configClose:SetScript("OnClick", HideTerninUIConfig)
 
-------------------------------------------------------------
--- Slash command
-------------------------------------------------------------
+-- ---------------------------------------------------------------------------
+-- Slash command: /tui [lock|unlock]
+-- ---------------------------------------------------------------------------
 
 SLASH_TERNINUI1 = "/tui"
 SlashCmdList["TERNINUI"] = function(msg)
@@ -923,7 +888,6 @@ SlashCmdList["TERNINUI"] = function(msg)
         if terninUICategory and Settings and Settings.OpenToCategory then
             Settings.OpenToCategory(terninUICategory:GetID())
         elseif optionsWrapper and InterfaceOptionsFrame_OpenToCategory then
-            InterfaceOptionsFrame_OpenToCategory(optionsWrapper)
             InterfaceOptionsFrame_OpenToCategory(optionsWrapper)
         else
             ShowTerninUIConfig()

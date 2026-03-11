@@ -1,10 +1,15 @@
+--[[
+    TerninUI - Core
+    Addon namespace, default config, and saved variable initialization.
+]]
+
 local ADDON_NAME, ns = ...
 
 ns.PLAYER_UNIT = "player"
 
-------------------------------------------------------------
+-- ---------------------------------------------------------------------------
 -- Default configuration
-------------------------------------------------------------
+-- ---------------------------------------------------------------------------
 
 ns.DEFAULT_CONFIG = {
     locked = false,
@@ -59,9 +64,9 @@ ns.DEFAULT_CONFIG = {
     },
 }
 
-------------------------------------------------------------
--- Utility functions
-------------------------------------------------------------
+-- ---------------------------------------------------------------------------
+-- Utilities
+-- ---------------------------------------------------------------------------
 
 function ns.CopyTable(tbl)
     if type(tbl) ~= "table" then
@@ -88,9 +93,9 @@ function ns.MergeDefaults(into, defaults)
     end
 end
 
-------------------------------------------------------------
+-- ---------------------------------------------------------------------------
 -- Saved variable initialization
-------------------------------------------------------------
+-- ---------------------------------------------------------------------------
 
 if type(TerninUI_Config) ~= "table" then
     TerninUI_Config = ns.CopyTable(ns.DEFAULT_CONFIG)
@@ -98,37 +103,45 @@ else
     ns.MergeDefaults(TerninUI_Config, ns.DEFAULT_CONFIG)
 end
 
+-- Ensure bars config exists and migrate from old formats.
 local function EnsureBars()
     local defaults = ns.DEFAULT_CONFIG.bars
     local bars = TerninUI_Config.bars
     local oldBarWidth = TerninUI_Config.barWidth
     local oldBgColor = TerninUI_Config.globalBgColor
     local oldBgAlpha = TerninUI_Config.globalBgAlpha
+
+    -- Cap at 3 bars
     if #bars > 3 then
         for i = 4, #bars do bars[i] = nil end
     end
+
     for i = 1, 3 do
         if not bars[i] then
             bars[i] = ns.CopyTable(defaults[i] or defaults[1])
         else
+            -- Migrate legacy global settings to per-bar
             if oldBarWidth and bars[i].width == nil then bars[i].width = oldBarWidth end
             if oldBgColor and bars[i].bgColor == nil then bars[i].bgColor = oldBgColor end
             if oldBgAlpha ~= nil and bars[i].bgAlpha == nil then bars[i].bgAlpha = oldBgAlpha end
             ns.MergeDefaults(bars[i], defaults[i] or defaults[1])
         end
     end
+
+    -- Reset absorb bar if it was the old buff type
     if bars[3] and bars[3].type == "buff" then
         bars[3] = ns.CopyTable(defaults[3])
     end
 end
 EnsureBars()
 
-local b2 = TerninUI_Config.bars[2]
-if b2 then
-    if b2.markerValue == nil and b2.markerPercent then
-        b2.markerValue = b2.markerPercent
+-- Migrate Power bar legacy fields
+local powerBar = TerninUI_Config.bars[2]
+if powerBar then
+    if powerBar.markerValue == nil and powerBar.markerPercent then
+        powerBar.markerValue = powerBar.markerPercent
     end
-    if b2.markerEnabled == nil and b2.markerUseValue == true then
-        b2.markerEnabled = true
+    if powerBar.markerEnabled == nil and powerBar.markerUseValue == true then
+        powerBar.markerEnabled = true
     end
 end
