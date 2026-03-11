@@ -885,7 +885,9 @@ SlashCmdList["TERNINUI"] = function(msg)
         ApplyLockState()
         print("|cFF00A2FFTerninUI:|r Bars unlocked. Drag to move.")
     else
-        if terninUICategory and Settings and Settings.OpenToCategory then
+        if UnitAffectingCombat("player") then
+            print("|cFF00A2FFTerninUI:|r Cannot open options while in combat.")
+        elseif terninUICategory and Settings and Settings.OpenToCategory then
             Settings.OpenToCategory(terninUICategory:GetID())
         elseif optionsWrapper and InterfaceOptionsFrame_OpenToCategory then
             InterfaceOptionsFrame_OpenToCategory(optionsWrapper)
