@@ -288,6 +288,102 @@ local function BuildDefaultBarsPanel(panel)
     _G[spacingSlider:GetName() .. "Text"]:SetText("Bar spacing: " .. (TerninUI_Config.barSpacing or DEFAULT_CONFIG.barSpacing))
     CleanSliderStyle(spacingSlider)
     optionsRefs.spacingSlider = spacingSlider
+
+    local BAR_STYLE_OPTIONS = {
+        { value = "plain", text = "Plain" },
+        { value = "blizzard", text = "Blizzard" },
+        { value = "elvui", text = "ElvUI" },
+    }
+    local barStyleRow = CreateFrame("Frame", nil, panel)
+    barStyleRow:SetPoint("TOPLEFT", spacingSlider, "BOTTOMLEFT", 0, -22)
+    barStyleRow:SetPoint("LEFT", panel, "LEFT", PAD, 0)
+    barStyleRow:SetPoint("RIGHT", panel, "RIGHT", -PAD, 0)
+    barStyleRow:SetHeight(28)
+    local barStyleDropdown = CreateFrame("Frame", "$parent_BarStyle", barStyleRow, "UIDropDownMenuTemplate")
+    barStyleDropdown:SetPoint("LEFT", barStyleRow, "LEFT", 0, 0)
+    local barStyleLabel = barStyleRow:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    barStyleLabel:SetPoint("LEFT", barStyleDropdown, "RIGHT", 8, 0)
+    barStyleLabel:SetText("Bar style")
+    barStyleLabel:SetTextColor(1, 0.82, 0)
+    UIDropDownMenu_SetWidth(barStyleDropdown, 140)
+    local function BarStyleDropdown_Initialize(self, level)
+        local info = UIDropDownMenu_CreateInfo()
+        for _, opt in ipairs(BAR_STYLE_OPTIONS) do
+            info.text = opt.text
+            info.value = opt.value
+            info.func = function(button)
+                TerninUI_Config.barStyle = opt.value
+                UIDropDownMenu_SetSelectedValue(barStyleDropdown, opt.value)
+                if UIDropDownMenu_SetText then UIDropDownMenu_SetText(barStyleDropdown, opt.text) end
+                LayoutBars()
+            end
+            info.checked = (TerninUI_Config.barStyle or "plain") == opt.value
+            UIDropDownMenu_AddButton(info, level)
+        end
+    end
+    UIDropDownMenu_Initialize(barStyleDropdown, BarStyleDropdown_Initialize)
+    optionsRefs.barStyleDropdown = barStyleDropdown
+    optionsRefs.BAR_STYLE_OPTIONS = BAR_STYLE_OPTIONS
+
+    -- Gradient mode dropdown
+    local GRADIENT_OPTIONS = {
+        { value = "none", text = "None" },
+        { value = "vertical", text = "Vertical (glossy)" },
+        { value = "horizontal", text = "Horizontal" },
+        { value = "radial", text = "Radial (center bright)" },
+    }
+    local gradientRow = CreateFrame("Frame", nil, panel)
+    gradientRow:SetPoint("TOPLEFT", barStyleRow, "BOTTOMLEFT", 0, -22)
+    gradientRow:SetPoint("LEFT", panel, "LEFT", PAD, 0)
+    gradientRow:SetPoint("RIGHT", panel, "RIGHT", -PAD, 0)
+    gradientRow:SetHeight(28)
+    local gradientDropdown = CreateFrame("Frame", "$parent_GradientMode", gradientRow, "UIDropDownMenuTemplate")
+    gradientDropdown:SetPoint("LEFT", gradientRow, "LEFT", 0, 0)
+    local gradientLabel = gradientRow:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    gradientLabel:SetPoint("LEFT", gradientDropdown, "RIGHT", 8, 0)
+    gradientLabel:SetText("Gradient")
+    gradientLabel:SetTextColor(1, 0.82, 0)
+    UIDropDownMenu_SetWidth(gradientDropdown, 140)
+    local function GradientDropdown_Initialize(self, level)
+        local info = UIDropDownMenu_CreateInfo()
+        for _, opt in ipairs(GRADIENT_OPTIONS) do
+            info.text = opt.text
+            info.value = opt.value
+            info.func = function(button)
+                TerninUI_Config.gradientMode = opt.value
+                UIDropDownMenu_SetSelectedValue(gradientDropdown, opt.value)
+                if UIDropDownMenu_SetText then UIDropDownMenu_SetText(gradientDropdown, opt.text) end
+                LayoutBars()
+            end
+            info.checked = (TerninUI_Config.gradientMode or "none") == opt.value
+            UIDropDownMenu_AddButton(info, level)
+        end
+    end
+    UIDropDownMenu_Initialize(gradientDropdown, GradientDropdown_Initialize)
+    optionsRefs.gradientDropdown = gradientDropdown
+    optionsRefs.GRADIENT_OPTIONS = GRADIENT_OPTIONS
+
+    -- Gradient intensity slider
+    local gradientIntensitySlider = CreateFrame("Slider", "$parent_GradientIntensity", panel, "OptionsSliderTemplate")
+    gradientIntensitySlider:SetPoint("TOPLEFT", gradientRow, "BOTTOMLEFT", 0, -28)
+    gradientIntensitySlider:SetPoint("RIGHT", panel, "RIGHT", -PAD, 0)
+    gradientIntensitySlider:SetMinMaxValues(0, 100)
+    gradientIntensitySlider:SetValueStep(5)
+    _G[gradientIntensitySlider:GetName() .. "Low"]:SetText("0%")
+    _G[gradientIntensitySlider:GetName() .. "High"]:SetText("100%")
+    _G[gradientIntensitySlider:GetName() .. "Text"]:SetText("Gradient intensity")
+    gradientIntensitySlider:SetScript("OnValueChanged", function(self, value)
+        value = math.floor(value + 0.5)
+        TerninUI_Config.gradientIntensity = value
+        _G[self:GetName() .. "Text"]:SetText("Gradient intensity: " .. value .. "%")
+        LayoutBars()
+    end)
+    local gradVal = TerninUI_Config.gradientIntensity
+    if gradVal == nil then gradVal = DEFAULT_CONFIG.gradientIntensity or 30 end
+    gradientIntensitySlider:SetValue(gradVal)
+    _G[gradientIntensitySlider:GetName() .. "Text"]:SetText("Gradient intensity: " .. gradVal .. "%")
+    CleanSliderStyle(gradientIntensitySlider)
+    optionsRefs.gradientIntensitySlider = gradientIntensitySlider
 end
 
 local function BuildHealthPanel(panel)
@@ -661,7 +757,7 @@ else
     local defaultBarsContent = CreateFrame("Frame", nil, optionsContent)
     defaultBarsContent:SetPoint("TOPLEFT", optionsContent, "TOPLEFT", 0, 0)
     defaultBarsContent:SetPoint("RIGHT", optionsContent, "RIGHT", 0, 0)
-    defaultBarsContent:SetHeight(150)
+    defaultBarsContent:SetHeight(220)
     BuildDefaultBarsPanel(defaultBarsContent)
 
     local healthContent = CreateFrame("Frame", nil, optionsContent)
@@ -710,6 +806,32 @@ function OptionsRefresh()
     if r.spacingSlider then
         r.spacingSlider:SetValue(c.barSpacing or DEFAULT_CONFIG.barSpacing)
         _G[r.spacingSlider:GetName() .. "Text"]:SetText("Bar spacing: " .. (c.barSpacing or DEFAULT_CONFIG.barSpacing))
+    end
+    if r.barStyleDropdown and r.BAR_STYLE_OPTIONS then
+        local style = c.barStyle or "plain"
+        UIDropDownMenu_SetSelectedValue(r.barStyleDropdown, style)
+        for _, opt in ipairs(r.BAR_STYLE_OPTIONS) do
+            if opt.value == style then
+                if UIDropDownMenu_SetText then UIDropDownMenu_SetText(r.barStyleDropdown, opt.text) end
+                break
+            end
+        end
+    end
+    if r.gradientDropdown and r.GRADIENT_OPTIONS then
+        local mode = c.gradientMode or "none"
+        UIDropDownMenu_SetSelectedValue(r.gradientDropdown, mode)
+        for _, opt in ipairs(r.GRADIENT_OPTIONS) do
+            if opt.value == mode then
+                if UIDropDownMenu_SetText then UIDropDownMenu_SetText(r.gradientDropdown, opt.text) end
+                break
+            end
+        end
+    end
+    if r.gradientIntensitySlider then
+        local v = c.gradientIntensity
+        if v == nil then v = DEFAULT_CONFIG.gradientIntensity or 30 end
+        r.gradientIntensitySlider:SetValue(v)
+        _G[r.gradientIntensitySlider:GetName() .. "Text"]:SetText("Gradient intensity: " .. v .. "%")
     end
 
     if r.healthCheck and r.healthCheck.SetChecked then r.healthCheck:SetChecked(c.bars[1].enabled ~= false) end

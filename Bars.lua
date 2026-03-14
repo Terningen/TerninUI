@@ -11,6 +11,74 @@ local DEFAULT_CONFIG = ns.DEFAULT_CONFIG
 -- Power type mapping (resource name -> WoW power type enum)
 -- ---------------------------------------------------------------------------
 
+-- Bar style -> texture path (built-in WoW textures)
+-- ElvUI: flat like real ElvUI's "ElvUI Norm" (no gradient, minimal)
+local BAR_STYLE_TEXTURES = {
+    plain     = "Interface\\Buttons\\WHITE8x8",
+    blizzard  = "Interface\\TARGETINGFRAME\\UI-StatusBar",
+    elvui     = "Interface\\Buttons\\WHITE8x8",  -- Flat, minimal - matches ElvUI's default style
+}
+
+local function GetBarTexture()
+    local style = (TerninUI_Config and TerninUI_Config.barStyle) or "plain"
+    return BAR_STYLE_TEXTURES[style] or BAR_STYLE_TEXTURES.plain
+end
+
+-- Apply gradient to status bar texture. Works with any base texture.
+-- Radial: simulated with overlay textures (center bright, edges dark) - WoW has no native radial API.
+local function ApplyBarGradient(bar, r, g, b, a)
+    local tex = bar:GetStatusBarTexture()
+    if not tex or not tex.SetGradient then return end
+
+    local mode = (TerninUI_Config and TerninUI_Config.gradientMode) or "none"
+    local intensity = (TerninUI_Config and TerninUI_Config.gradientIntensity) or 30
+    intensity = math.max(0, math.min(100, intensity)) / 100
+
+    r, g, b, a = r or 1, g or 1, b or 1, a or 1
+    local c = CreateColor(r, g, b, a)
+
+    -- Radial overlays: show/hide based on mode
+    if bar.radialLeft then
+        bar.radialLeft:Hide()
+    end
+    if bar.radialRight then
+        bar.radialRight:Hide()
+    end
+
+    if mode == "none" or intensity <= 0 then
+        tex:SetGradient("VERTICAL", c, c)
+        return
+    end
+
+    if mode == "radial" then
+        -- Simulate radial: dark overlay at edges, transparent at center (center appears brighter)
+        tex:SetGradient("VERTICAL", c, c)
+        local edgeAlpha = intensity * 0.7
+        if bar.radialLeft and bar.radialRight then
+            bar.radialLeft:SetTexture("Interface\\Buttons\\WHITE8x8")
+            bar.radialLeft:SetGradient("HORIZONTAL", CreateColor(0, 0, 0, edgeAlpha), CreateColor(0, 0, 0, 0))
+            bar.radialRight:SetTexture("Interface\\Buttons\\WHITE8x8")
+            bar.radialRight:SetGradient("HORIZONTAL", CreateColor(0, 0, 0, 0), CreateColor(0, 0, 0, edgeAlpha))
+            bar.radialLeft:Show()
+            bar.radialRight:Show()
+        end
+        return
+    end
+
+    local darken = 1 - intensity
+    local lighten = 1 + (intensity * 0.5)
+    local r1, g1, b1 = r * darken, g * darken, b * darken
+    local r2, g2, b2 = math.min(1, r * lighten), math.min(1, g * lighten), math.min(1, b * lighten)
+
+    if mode == "vertical" then
+        tex:SetGradient("VERTICAL", CreateColor(r1, g1, b1, a), CreateColor(r2, g2, b2, a))
+    elseif mode == "horizontal" then
+        tex:SetGradient("HORIZONTAL", CreateColor(r1, g1, b1, a), CreateColor(r2, g2, b2, a))
+    else
+        tex:SetGradient("VERTICAL", c, c)
+    end
+end
+
 local POWER_TYPES = {
     rage        = (Enum and Enum.PowerType and Enum.PowerType.Rage)       or 1,
     mana        = (Enum and Enum.PowerType and Enum.PowerType.Mana)       or 0,
@@ -101,8 +169,10 @@ function ns.LayoutBars()
             bar:ClearAllPoints()
             bar:SetSize(w, h)
 
+            bar:SetStatusBarTexture(GetBarTexture())
             local bc = def.color or DEFAULT_CONFIG.bars[i] and DEFAULT_CONFIG.bars[i].color or {1, 1, 1, 1}
             bar:SetStatusBarColor(bc[1] or 1, bc[2] or 1, bc[3] or 1, bc[4] or 1)
+            ApplyBarGradient(bar, bc[1], bc[2], bc[3], bc[4])
 
             local pct = 0
             if def.markerEnabled and def.type == "resource" and i == 2 then
@@ -160,7 +230,7 @@ local function CreateBars()
 
     for _, def in ipairs(TerninUI_Config.bars) do
         local bar = CreateFrame("StatusBar", "TerninUI_Bar_" .. (def.id or ""), container)
-        bar:SetStatusBarTexture("Interface\\Buttons\\WHITE8x8")
+        bar:SetStatusBarTexture(GetBarTexture())
 
         local c = def.color or DEFAULT_CONFIG.bars[1].color
         bar:SetStatusBarColor(c[1] or 1, c[2] or 1, c[3] or 1, c[4] or 1)
@@ -182,6 +252,18 @@ local function CreateBars()
         bar.marker:SetColorTexture(1, 1, 1, 0.9)
         bar.marker:SetSize(2, 1)
         bar.marker:Hide()
+
+        -- Radial gradient overlays (left/right halves, center bright)
+        bar.radialLeft = bar:CreateTexture(nil, "OVERLAY")
+        bar.radialLeft:SetPoint("TOPLEFT", bar, "TOPLEFT", 0, 0)
+        bar.radialLeft:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", 0, 0)
+        bar.radialLeft:SetPoint("RIGHT", bar, "CENTER", 0, 0)
+        bar.radialLeft:Hide()
+        bar.radialRight = bar:CreateTexture(nil, "OVERLAY")
+        bar.radialRight:SetPoint("TOPRIGHT", bar, "TOPRIGHT", 0, 0)
+        bar.radialRight:SetPoint("BOTTOMRIGHT", bar, "BOTTOMRIGHT", 0, 0)
+        bar.radialRight:SetPoint("LEFT", bar, "CENTER", 0, 0)
+        bar.radialRight:Hide()
 
         bar.def = def
         table.insert(barFrames, bar)

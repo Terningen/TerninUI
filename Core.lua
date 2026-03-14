@@ -14,6 +14,9 @@ ns.PLAYER_UNIT = "player"
 ns.DEFAULT_CONFIG = {
     locked = false,
     barSpacing = 0,
+    barStyle = "plain",
+    gradientMode = "none",
+    gradientIntensity = 30,
     position = {
         point = "CENTER",
         relativePoint = "CENTER",
@@ -134,6 +137,11 @@ local function EnsureBars()
     end
 end
 EnsureBars()
+
+-- Migrate removed bar styles (raid -> plain)
+if TerninUI_Config.barStyle == "raid" then
+    TerninUI_Config.barStyle = "plain"
+end
 
 -- Migrate Power bar legacy fields
 local powerBar = TerninUI_Config.bars[2]
