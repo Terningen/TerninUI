@@ -2,7 +2,7 @@
 ## Title: |cFF00A2FFTerninUI|r
 ## Notes: Lightweight addon with clean, minimal resource bars (health, power, absorb shields). Draggable and configurable via /tui.
 ## Author: Ternin
-## Version: 1.2.0
+## Version: 1.2.2
 ## IconTexture: Interface\AddOns\TerninUI\TerninUI
 ## SavedVariablesPerCharacter: TerninUI_Config
 ## X-License: MIT
