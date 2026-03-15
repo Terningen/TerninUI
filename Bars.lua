@@ -20,7 +20,8 @@ local BAR_STYLE_TEXTURES = {
 }
 
 local function GetBarTexture()
-    local style = (TerninUI_Config and TerninUI_Config.barStyle) or "plain"
+    local c = ns.GetConfig()
+    local style = (c and c.barStyle) or "plain"
     return BAR_STYLE_TEXTURES[style] or BAR_STYLE_TEXTURES.plain
 end
 
@@ -30,8 +31,9 @@ local function ApplyBarGradient(bar, r, g, b, a)
     local tex = bar:GetStatusBarTexture()
     if not tex or not tex.SetGradient then return end
 
-    local mode = (TerninUI_Config and TerninUI_Config.gradientMode) or "none"
-    local intensity = (TerninUI_Config and TerninUI_Config.gradientIntensity) or 30
+    local c = ns.GetConfig()
+    local mode = (c and c.gradientMode) or "none"
+    local intensity = (c and c.gradientIntensity) or 30
     intensity = math.max(0, math.min(100, intensity)) / 100
 
     r, g, b, a = r or 1, g or 1, b or 1, a or 1
@@ -101,7 +103,8 @@ ns.container = container
 
 local function ApplyContainerPosition()
     container:ClearAllPoints()
-    local pos = TerninUI_Config.position or DEFAULT_CONFIG.position
+    local c = ns.GetConfig()
+    local pos = (c and c.position) or DEFAULT_CONFIG.position
     container:SetPoint(
         pos.point or "CENTER",
         UIParent,
@@ -116,29 +119,67 @@ ApplyContainerPosition()
 
 local function SaveContainerPosition()
     local point, _, relativePoint, x, y = container:GetPoint()
-    TerninUI_Config.position = {
-        point = point,
-        relativePoint = relativePoint,
-        x = x,
-        y = y,
-    }
+    local c = ns.GetConfig()
+    if c then
+            c.position = {
+            point = point,
+            relativePoint = relativePoint,
+            x = x,
+            y = y,
+        }
+    end
 end
 
 local barFrames = {}
 ns.barFrames = barFrames
 
+-- Recursively enable/disable mouse on frame and all descendants (StatusBar etc. enable mouse by default)
+local function SetFrameTreeMouseEnabled(frame, enabled)
+    if not frame then return end
+    if frame.EnableMouse then
+        frame:EnableMouse(enabled)
+    end
+    if frame.GetChildren then
+        for _, child in ipairs({frame:GetChildren()}) do
+            SetFrameTreeMouseEnabled(child, enabled)
+        end
+    end
+end
+
 function ns.ApplyLockState()
-    if TerninUI_Config.locked then
-        container:EnableMouse(false)
+    local c = ns.GetConfig()
+    local locked = c and c.locked
+    if locked then
+        -- Combine multiple approaches (other addons use EnableMouse + HitRectInsets):
+        -- 1. EnableMouse(false) on container + all descendants (StatusBar enables mouse by default)
+        SetFrameTreeMouseEnabled(container, false)
+        -- 2. Shrink hit rect to zero so frame is never "under" cursor (prevents blocking)
+        container:SetHitRectInsets(10000, 10000, 10000, 10000)
+        for _, bar in ipairs(barFrames) do
+            bar:SetHitRectInsets(10000, 10000, 10000, 10000)
+        end
+        -- 3. Lower strata so we're behind other UI (backup)
+        container:SetFrameStrata("BACKGROUND")
+        container:SetFrameLevel(0)
     else
+        container:SetFrameStrata("MEDIUM")
+        container:SetFrameLevel(1)
+        -- Container receives drag; bars pass clicks through so container gets them
         container:EnableMouse(true)
+        for _, bar in ipairs(barFrames) do
+            bar:EnableMouse(false)
+            bar:SetHitRectInsets(0, 0, 0, 0)
+        end
+        -- Expand container hit area when unlocked so bars are easier to grab
+        container:SetHitRectInsets(-25, -25, -25, -25)
     end
 end
 
 container:SetMovable(true)
 container:RegisterForDrag("LeftButton")
 container:SetScript("OnDragStart", function(self)
-    if not TerninUI_Config.locked then
+    local c = ns.GetConfig()
+    if c and not c.locked then
         self:StartMoving()
     end
 end)
@@ -152,7 +193,8 @@ end)
 -- ---------------------------------------------------------------------------
 
 function ns.LayoutBars()
-    local c = TerninUI_Config
+    local c = ns.GetConfig()
+    if not c then return end
     local maxWidth = 0
 
     local totalHeight = 0
@@ -228,7 +270,8 @@ local function CreateBars()
     end
     wipe(barFrames)
 
-    for _, def in ipairs(TerninUI_Config.bars) do
+    local cfg = ns.GetConfig()
+    for _, def in ipairs((cfg and cfg.bars) or {}) do
         local bar = CreateFrame("StatusBar", "TerninUI_Bar_" .. (def.id or ""), container)
         bar:SetStatusBarTexture(GetBarTexture())
 
@@ -345,6 +388,7 @@ end
 -- ---------------------------------------------------------------------------
 
 container:RegisterEvent("PLAYER_ENTERING_WORLD")
+container:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
 container:RegisterEvent("UNIT_HEALTH")
 container:RegisterEvent("UNIT_MAXHEALTH")
 container:RegisterEvent("UNIT_POWER_UPDATE")
@@ -357,6 +401,15 @@ container:SetScript("OnEvent", function(self, event, arg1, ...)
     if event == "PLAYER_ENTERING_WORLD" then
         ApplyContainerPosition()
         ns.LayoutBars()
+    end
+
+    if event == "PLAYER_SPECIALIZATION_CHANGED" and arg1 == "player" then
+        if TerninUI_Config and TerninUI_Config.perSpecEnabled then
+            ApplyContainerPosition()
+            ns.LayoutBars()
+            ns.ApplyLockState()
+            ns.UpdateAllBars(event, "player")
+        end
     end
 
     if event == "UNIT_HEALTH" or event == "UNIT_MAXHEALTH" or

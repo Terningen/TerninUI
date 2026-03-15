@@ -17,6 +17,7 @@ ns.DEFAULT_CONFIG = {
     barStyle = "plain",
     gradientMode = "none",
     gradientIntensity = 30,
+    perSpecEnabled = false,
     position = {
         point = "CENTER",
         relativePoint = "CENTER",
@@ -94,6 +95,35 @@ function ns.MergeDefaults(into, defaults)
             into[k] = v
         end
     end
+end
+
+-- ---------------------------------------------------------------------------
+-- Per-spec config: returns the active config for current spec when perSpecEnabled
+-- ---------------------------------------------------------------------------
+
+function ns.GetConfig()
+    if not TerninUI_Config then return nil end
+    if not TerninUI_Config.perSpecEnabled then
+        return TerninUI_Config
+    end
+    local spec = GetSpecialization() or 1
+    if not TerninUI_Config.specs then
+        TerninUI_Config.specs = {}
+    end
+    if not TerninUI_Config.specs[spec] then
+        -- Copy from main config as template for this spec (exclude meta fields)
+        local src = TerninUI_Config
+        TerninUI_Config.specs[spec] = {
+            locked = src.locked,
+            barSpacing = src.barSpacing or 0,
+            barStyle = src.barStyle or "plain",
+            gradientMode = src.gradientMode or "none",
+            gradientIntensity = src.gradientIntensity or 30,
+            position = src.position and ns.CopyTable(src.position) or ns.CopyTable(ns.DEFAULT_CONFIG.position),
+            bars = ns.CopyTable(src.bars or ns.DEFAULT_CONFIG.bars),
+        }
+    end
+    return TerninUI_Config.specs[spec]
 end
 
 -- ---------------------------------------------------------------------------

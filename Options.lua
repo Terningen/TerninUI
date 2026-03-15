@@ -6,8 +6,10 @@
 local ADDON_NAME, ns = ...
 local DEFAULT_CONFIG = ns.DEFAULT_CONFIG
 local LayoutBars = ns.LayoutBars
+local GetConfig = ns.GetConfig
 local UpdateAllBars = ns.UpdateAllBars
 local ApplyLockState = ns.ApplyLockState
+local ApplyContainerPosition = ns.ApplyContainerPosition
 local barFrames = ns.barFrames
 
 local PAD = 24
@@ -160,12 +162,14 @@ local function CreateBgAlphaSlider(panel, barIndex, anchor)
     _G[slider:GetName() .. "Text"]:SetText("Backdrop transparency")
     slider:SetScript("OnValueChanged", function(self, value)
         value = math.floor(value + 0.5)
-        TerninUI_Config.bars[barIndex].bgAlpha = value
+        local c = GetConfig()
+        if c and c.bars and c.bars[barIndex] then c.bars[barIndex].bgAlpha = value end
         _G[self:GetName() .. "Text"]:SetText("Backdrop transparency: " .. value .. "%")
         LayoutBars()
     end)
     local def = DEFAULT_CONFIG.bars[barIndex]
-    local v = TerninUI_Config.bars[barIndex].bgAlpha
+    local cfg = GetConfig()
+    local v = cfg and cfg.bars and cfg.bars[barIndex] and cfg.bars[barIndex].bgAlpha
     if v == nil then v = def and def.bgAlpha or 0 end
     slider:SetValue(v)
     _G[slider:GetName() .. "Text"]:SetText("Backdrop transparency: " .. v .. "%")
@@ -184,11 +188,13 @@ local function CreateWidthSlider(panel, index, anchor, labelText)
     _G[slider:GetName() .. "Text"]:SetText(labelText .. " width")
     slider:SetScript("OnValueChanged", function(self, value)
         value = math.floor((value or self:GetValue()) + 0.5)
-        TerninUI_Config.bars[index].width = value
+        local c = GetConfig()
+        if c and c.bars and c.bars[index] then c.bars[index].width = value end
         _G[self:GetName() .. "Text"]:SetText(labelText .. " width: " .. value)
         LayoutBars()
     end)
-    local initVal = (TerninUI_Config.bars[index] and TerninUI_Config.bars[index].width) or DEFAULT_CONFIG.bars[index].width or 150
+    local cfg = GetConfig()
+    local initVal = (cfg and cfg.bars and cfg.bars[index] and cfg.bars[index].width) or DEFAULT_CONFIG.bars[index].width or 150
     slider:SetValue(initVal)
     _G[slider:GetName() .. "Text"]:SetText(labelText .. " width: " .. initVal)
     CleanSliderStyle(slider)
@@ -206,11 +212,13 @@ local function CreateHeightSlider(panel, index, anchor, labelText)
     _G[slider:GetName() .. "Text"]:SetText(labelText .. " height")
     slider:SetScript("OnValueChanged", function(self, value)
         value = math.floor((value or self:GetValue()) + 0.5)
-        TerninUI_Config.bars[index].height = value
+        local c = GetConfig()
+        if c and c.bars and c.bars[index] then c.bars[index].height = value end
         _G[self:GetName() .. "Text"]:SetText(labelText .. " height: " .. value)
         LayoutBars()
     end)
-    local initVal = (TerninUI_Config.bars[index] and TerninUI_Config.bars[index].height) or DEFAULT_CONFIG.bars[index].height or 10
+    local cfg = GetConfig()
+    local initVal = (cfg and cfg.bars and cfg.bars[index] and cfg.bars[index].height) or DEFAULT_CONFIG.bars[index].height or 10
     slider:SetValue(initVal)
     _G[slider:GetName() .. "Text"]:SetText(labelText .. " height: " .. initVal)
     CleanSliderStyle(slider)
@@ -261,10 +269,22 @@ local function BuildDefaultBarsPanel(panel)
     defaultHeader:SetText("Default")
     defaultHeader:SetTextColor(1, 0.82, 0)
 
-    local lockCheck = CreateEnableCheckbox(panel, defaultHeader, "Lock elements",
-        function() return TerninUI_Config.locked end,
+    local perSpecCheck = CreateEnableCheckbox(panel, defaultHeader, "Individual settings per spec",
+        function() return TerninUI_Config.perSpecEnabled == true end,
+        function(enabled)
+            TerninUI_Config.perSpecEnabled = enabled
+            ApplyContainerPosition()
+            LayoutBars()
+            ApplyLockState()
+            if OptionsRefresh then OptionsRefresh() end
+        end)
+    optionsRefs.perSpecCheck = perSpecCheck
+
+    local lockCheck = CreateEnableCheckbox(panel, perSpecCheck, "Lock elements",
+        function() local c = GetConfig(); return c and c.locked end,
         function(locked)
-            TerninUI_Config.locked = locked
+            local c = GetConfig()
+            if c then c.locked = locked end
             ApplyLockState()
         end)
     optionsRefs.lockCheck = lockCheck
@@ -280,12 +300,12 @@ local function BuildDefaultBarsPanel(panel)
     _G[spacingSlider:GetName() .. "Text"]:SetText("Bar spacing")
     spacingSlider:SetScript("OnValueChanged", function(self, value)
         value = math.floor(value + 0.5)
-        TerninUI_Config.barSpacing = value
+        local c = GetConfig()
+        if c then c.barSpacing = value end
         _G[self:GetName() .. "Text"]:SetText("Bar spacing: " .. value)
         LayoutBars()
     end)
-    spacingSlider:SetValue(TerninUI_Config.barSpacing or DEFAULT_CONFIG.barSpacing)
-    _G[spacingSlider:GetName() .. "Text"]:SetText("Bar spacing: " .. (TerninUI_Config.barSpacing or DEFAULT_CONFIG.barSpacing))
+    do local c = GetConfig(); local v = (c and c.barSpacing) or DEFAULT_CONFIG.barSpacing; spacingSlider:SetValue(v); _G[spacingSlider:GetName() .. "Text"]:SetText("Bar spacing: " .. v) end
     CleanSliderStyle(spacingSlider)
     optionsRefs.spacingSlider = spacingSlider
 
@@ -312,12 +332,13 @@ local function BuildDefaultBarsPanel(panel)
             info.text = opt.text
             info.value = opt.value
             info.func = function(button)
-                TerninUI_Config.barStyle = opt.value
+                local c = GetConfig()
+                if c then c.barStyle = opt.value end
                 UIDropDownMenu_SetSelectedValue(barStyleDropdown, opt.value)
                 if UIDropDownMenu_SetText then UIDropDownMenu_SetText(barStyleDropdown, opt.text) end
                 LayoutBars()
             end
-            info.checked = (TerninUI_Config.barStyle or "plain") == opt.value
+            info.checked = ((GetConfig() or {}).barStyle or "plain") == opt.value
             UIDropDownMenu_AddButton(info, level)
         end
     end
@@ -350,12 +371,13 @@ local function BuildDefaultBarsPanel(panel)
             info.text = opt.text
             info.value = opt.value
             info.func = function(button)
-                TerninUI_Config.gradientMode = opt.value
+                local c = GetConfig()
+                if c then c.gradientMode = opt.value end
                 UIDropDownMenu_SetSelectedValue(gradientDropdown, opt.value)
                 if UIDropDownMenu_SetText then UIDropDownMenu_SetText(gradientDropdown, opt.text) end
                 LayoutBars()
             end
-            info.checked = (TerninUI_Config.gradientMode or "none") == opt.value
+            info.checked = ((GetConfig() or {}).gradientMode or "none") == opt.value
             UIDropDownMenu_AddButton(info, level)
         end
     end
@@ -374,11 +396,12 @@ local function BuildDefaultBarsPanel(panel)
     _G[gradientIntensitySlider:GetName() .. "Text"]:SetText("Gradient intensity")
     gradientIntensitySlider:SetScript("OnValueChanged", function(self, value)
         value = math.floor(value + 0.5)
-        TerninUI_Config.gradientIntensity = value
+        local c = GetConfig()
+        if c then c.gradientIntensity = value end
         _G[self:GetName() .. "Text"]:SetText("Gradient intensity: " .. value .. "%")
         LayoutBars()
     end)
-    local gradVal = TerninUI_Config.gradientIntensity
+    local gradVal = (GetConfig() or {}).gradientIntensity
     if gradVal == nil then gradVal = DEFAULT_CONFIG.gradientIntensity or 30 end
     gradientIntensitySlider:SetValue(gradVal)
     _G[gradientIntensitySlider:GetName() .. "Text"]:SetText("Gradient intensity: " .. gradVal .. "%")
@@ -393,9 +416,10 @@ local function BuildHealthPanel(panel)
     healthHeader:SetTextColor(1, 0.82, 0)
 
     local healthCheck = CreateEnableCheckbox(panel, healthHeader, "Enable Health Bar",
-        function() return TerninUI_Config.bars[1].enabled ~= false end,
+        function() local c = GetConfig(); return c and c.bars and c.bars[1] and c.bars[1].enabled ~= false end,
         function(enabled)
-            TerninUI_Config.bars[1].enabled = enabled
+            local c = GetConfig()
+            if c and c.bars and c.bars[1] then c.bars[1].enabled = enabled end
             LayoutBars()
             UpdateAllBars("UNIT_HEALTH", "player")
         end)
@@ -408,17 +432,21 @@ local function BuildHealthPanel(panel)
     optionsRefs.healthHeightSlider = healthHeightSlider
 
     local healthBarColorBtn = CreateColorOption(panel, healthHeightSlider, "Health bar color", function()
-        return TerninUI_Config.bars[1].color or DEFAULT_CONFIG.bars[1].color
+        local c = GetConfig()
+        return (c and c.bars and c.bars[1] and c.bars[1].color) or DEFAULT_CONFIG.bars[1].color
     end, function(r, g, b, a)
-        TerninUI_Config.bars[1].color = { r, g, b, a }
+        local c = GetConfig()
+        if c and c.bars and c.bars[1] then c.bars[1].color = { r, g, b, a } end
         if barFrames[1] then barFrames[1]:SetStatusBarColor(r, g, b, a) end
     end)
     optionsRefs.healthBarColorBtn = healthBarColorBtn
 
     local healthBgColorBtn = CreateColorOption(panel, healthBarColorBtn, "Backdrop color", function()
-        return TerninUI_Config.bars[1].bgColor or DEFAULT_CONFIG.bars[1].bgColor or {0, 0, 0, 1}
+        local c = GetConfig()
+        return (c and c.bars and c.bars[1] and c.bars[1].bgColor) or DEFAULT_CONFIG.bars[1].bgColor or {0, 0, 0, 1}
     end, function(r, g, b, a)
-        TerninUI_Config.bars[1].bgColor = { r, g, b, a }
+        local c = GetConfig()
+        if c and c.bars and c.bars[1] then c.bars[1].bgColor = { r, g, b, a } end
         LayoutBars()
     end)
     optionsRefs.healthBgColorBtn = healthBgColorBtn
@@ -433,9 +461,10 @@ local function BuildPowerPanel(panel)
     powerHeader:SetTextColor(1, 0.82, 0)
 
     local rageCheck = CreateEnableCheckbox(panel, powerHeader, "Enable Power Bar",
-        function() return TerninUI_Config.bars[2].enabled ~= false end,
+        function() local c = GetConfig(); return c and c.bars and c.bars[2] and c.bars[2].enabled ~= false end,
         function(enabled)
-            TerninUI_Config.bars[2].enabled = enabled
+            local c = GetConfig()
+            if c and c.bars and c.bars[2] then c.bars[2].enabled = enabled end
             LayoutBars()
             UpdateAllBars("UNIT_POWER_UPDATE", "player")
         end)
@@ -448,9 +477,10 @@ local function BuildPowerPanel(panel)
     optionsRefs.rageHeightSlider = rageHeightSlider
 
     local markerEnabledCheck = CreateEnableCheckbox(panel, rageHeightSlider, "Enable marker",
-        function() return TerninUI_Config.bars[2].markerEnabled == true end,
+        function() local c = GetConfig(); return c and c.bars and c.bars[2] and c.bars[2].markerEnabled == true end,
         function(enabled)
-            TerninUI_Config.bars[2].markerEnabled = enabled
+            local c = GetConfig()
+            if c and c.bars and c.bars[2] then c.bars[2].markerEnabled = enabled end
             LayoutBars()
             UpdateAllBars("UNIT_POWER_UPDATE", "player")
         end)
@@ -466,13 +496,15 @@ local function BuildPowerPanel(panel)
     _G[markerValueSlider:GetName() .. "Text"]:SetText("Resource value (e.g. 30 rage)")
     markerValueSlider:SetScript("OnValueChanged", function(self, value)
         value = math.floor(value + 0.5)
-        TerninUI_Config.bars[2].markerValue = value
+        local c = GetConfig()
+        if c and c.bars and c.bars[2] then c.bars[2].markerValue = value end
         _G[self:GetName() .. "Text"]:SetText("Resource value: " .. value .. " (e.g. 30 rage)")
         LayoutBars()
         UpdateAllBars("UNIT_POWER_UPDATE", "player")
     end)
     do
-        local v = TerninUI_Config.bars[2].markerValue or TerninUI_Config.bars[2].markerPercent or 30
+        local cfg = GetConfig()
+        local v = (cfg and cfg.bars and cfg.bars[2] and (cfg.bars[2].markerValue or cfg.bars[2].markerPercent)) or 30
         markerValueSlider:SetValue(v)
         _G[markerValueSlider:GetName() .. "Text"]:SetText("Resource value: " .. v .. " (e.g. 30 rage)")
     end
@@ -498,13 +530,15 @@ local function BuildPowerPanel(panel)
         markerColorBtn:SetBackdropBorderColor(0.5, 0.5, 0.5, 0.8)
     end
     local function updateMarkerColorSwatch()
-        local c = TerninUI_Config.bars[2].markerColor or DEFAULT_CONFIG.bars[2].markerColor or {1, 1, 1, 0.9}
+        local cfg = GetConfig()
+        local c = (cfg and cfg.bars and cfg.bars[2] and cfg.bars[2].markerColor) or DEFAULT_CONFIG.bars[2].markerColor or {1, 1, 1, 0.9}
         markerColorBtn.tex:SetColorTexture(c[1] or 1, c[2] or 1, c[3] or 1, 1)
     end
     markerColorBtn.update = updateMarkerColorSwatch
     markerColorBtn:SetScript("OnClick", function()
         if ColorPickerFrame and ColorPickerFrame.SetupColorPickerAndShow then
-            local c = TerninUI_Config.bars[2].markerColor or DEFAULT_CONFIG.bars[2].markerColor or {1, 1, 1, 0.9}
+            local cfg = GetConfig()
+            local c = (cfg and cfg.bars and cfg.bars[2] and cfg.bars[2].markerColor) or DEFAULT_CONFIG.bars[2].markerColor or {1, 1, 1, 0.9}
             local r, g, b, a = c[1] or 1, c[2] or 1, c[3] or 1, c[4] or 1
             ColorPickerFrame.previousValues = { r = r, g = g, b = b, a = a }
             ColorPickerFrame:SetupColorPickerAndShow({
@@ -512,14 +546,16 @@ local function BuildPowerPanel(panel)
                 swatchFunc = function()
                     local nr, ng, nb = ColorPickerFrame:GetColorRGB()
                     local na = (ColorPickerFrame.GetColorAlpha and ColorPickerFrame:GetColorAlpha()) or 1
-                    TerninUI_Config.bars[2].markerColor = { nr, ng, nb, na }
+                    local cfg = GetConfig()
+                    if cfg and cfg.bars and cfg.bars[2] then cfg.bars[2].markerColor = { nr, ng, nb, na } end
                     updateMarkerColorSwatch()
                     LayoutBars()
                 end,
                 cancelFunc = function()
                     local prev = ColorPickerFrame.previousValues
                     if prev then
-                        TerninUI_Config.bars[2].markerColor = { prev.r or 1, prev.g or 1, prev.b or 1, prev.a or 1 }
+                        local cfg = GetConfig()
+                        if cfg and cfg.bars and cfg.bars[2] then cfg.bars[2].markerColor = { prev.r or 1, prev.g or 1, prev.b or 1, prev.a or 1 } end
                         updateMarkerColorSwatch()
                         LayoutBars()
                     end
@@ -555,12 +591,15 @@ local function BuildPowerPanel(panel)
             info.text = opt.text
             info.value = opt.value
             info.func = function(button)
-                TerninUI_Config.bars[2].resource = opt.value
-                TerninUI_Config.bars[2].label = opt.text
+                local c = GetConfig()
+                if c and c.bars and c.bars[2] then
+                    c.bars[2].resource = opt.value
+                    c.bars[2].label = opt.text
+                end
                 UIDropDownMenu_SetSelectedValue(powerTypeDropdown, opt.value)
                 if UIDropDownMenu_SetText then UIDropDownMenu_SetText(powerTypeDropdown, opt.text) end
             end
-            info.checked = (TerninUI_Config.bars[2].resource == opt.value)
+            info.checked = (function() local c = GetConfig(); return c and c.bars and c.bars[2] and c.bars[2].resource == opt.value end)()
             UIDropDownMenu_AddButton(info, level)
         end
     end
@@ -587,13 +626,15 @@ local function BuildPowerPanel(panel)
         rageBarColorBtn:SetBackdropBorderColor(0.5, 0.5, 0.5, 0.8)
     end
     local function updatePowerBarColorSwatch()
-        local c = TerninUI_Config.bars[2].color or DEFAULT_CONFIG.bars[2].color
+        local cfg = GetConfig()
+        local c = (cfg and cfg.bars and cfg.bars[2] and cfg.bars[2].color) or DEFAULT_CONFIG.bars[2].color
         rageBarColorBtn.tex:SetColorTexture(c[1] or 1, c[2] or 1, c[3] or 1, 1)
     end
     rageBarColorBtn.update = updatePowerBarColorSwatch
     rageBarColorBtn:SetScript("OnClick", function()
         if ColorPickerFrame and ColorPickerFrame.SetupColorPickerAndShow then
-            local c = TerninUI_Config.bars[2].color or DEFAULT_CONFIG.bars[2].color
+            local cfg = GetConfig()
+            local c = (cfg and cfg.bars and cfg.bars[2] and cfg.bars[2].color) or DEFAULT_CONFIG.bars[2].color
             local r, g, b, a = c[1] or 1, c[2] or 1, c[3] or 1, c[4] or 1
             ColorPickerFrame.previousValues = { r = r, g = g, b = b, a = a }
             ColorPickerFrame:SetupColorPickerAndShow({
@@ -601,14 +642,16 @@ local function BuildPowerPanel(panel)
                 swatchFunc = function()
                     local nr, ng, nb = ColorPickerFrame:GetColorRGB()
                     local na = (ColorPickerFrame.GetColorAlpha and ColorPickerFrame:GetColorAlpha()) or 1
-                    TerninUI_Config.bars[2].color = { nr, ng, nb, na }
+                    local cfg = GetConfig()
+                    if cfg and cfg.bars and cfg.bars[2] then cfg.bars[2].color = { nr, ng, nb, na } end
                     if barFrames[2] then barFrames[2]:SetStatusBarColor(nr, ng, nb, na) end
                     updatePowerBarColorSwatch()
                 end,
                 cancelFunc = function()
                     local prev = ColorPickerFrame.previousValues
                     if prev then
-                        TerninUI_Config.bars[2].color = { prev.r or 1, prev.g or 1, prev.b or 1, prev.a or 1 }
+                        local cfg = GetConfig()
+                        if cfg and cfg.bars and cfg.bars[2] then cfg.bars[2].color = { prev.r or 1, prev.g or 1, prev.b or 1, prev.a or 1 } end
                         if barFrames[2] then barFrames[2]:SetStatusBarColor(prev.r or 1, prev.g or 1, prev.b or 1, prev.a or 1) end
                         updatePowerBarColorSwatch()
                     end
@@ -620,9 +663,11 @@ local function BuildPowerPanel(panel)
     optionsRefs.rageBarColorBtn = rageBarColorBtn
 
     local powerBgColorBtn = CreateColorOption(panel, powerBarColorRow, "Backdrop color", function()
-        return TerninUI_Config.bars[2].bgColor or DEFAULT_CONFIG.bars[2].bgColor or {0, 0, 0, 1}
+        local c = GetConfig()
+        return (c and c.bars and c.bars[2] and c.bars[2].bgColor) or DEFAULT_CONFIG.bars[2].bgColor or {0, 0, 0, 1}
     end, function(r, g, b, a)
-        TerninUI_Config.bars[2].bgColor = { r, g, b, a }
+        local c = GetConfig()
+        if c and c.bars and c.bars[2] then c.bars[2].bgColor = { r, g, b, a } end
         LayoutBars()
     end)
     optionsRefs.powerBgColorBtn = powerBgColorBtn
@@ -642,9 +687,10 @@ local function BuildAbsorbPanel(panel)
     hint:SetTextColor(0.7, 0.7, 0.7)
 
     local absorbCheck = CreateEnableCheckbox(panel, hint, "Enable Shield Pool",
-        function() return TerninUI_Config.bars[3].enabled ~= false end,
+        function() local c = GetConfig(); return c and c.bars and c.bars[3] and c.bars[3].enabled ~= false end,
         function(enabled)
-            TerninUI_Config.bars[3].enabled = enabled
+            local c = GetConfig()
+            if c and c.bars and c.bars[3] then c.bars[3].enabled = enabled end
             LayoutBars()
             UpdateAllBars("UNIT_ABSORB_AMOUNT_CHANGED", "player")
         end)
@@ -666,13 +712,15 @@ local function BuildAbsorbPanel(panel)
     _G[absorbMaxPercentSlider:GetName() .. "Text"]:SetText("% of max health (30% for Warrior Ignore Pain)")
     absorbMaxPercentSlider:SetScript("OnValueChanged", function(self, value)
         value = math.floor(value + 0.5)
-        TerninUI_Config.bars[3].absorbMaxPercent = value
+        local c = GetConfig()
+        if c and c.bars and c.bars[3] then c.bars[3].absorbMaxPercent = value end
         _G[self:GetName() .. "Text"]:SetText(value .. "% of max health (30% for Warrior Ignore Pain)")
         LayoutBars()
         UpdateAllBars("UNIT_ABSORB_AMOUNT_CHANGED", "player")
     end)
     do
-        local v = TerninUI_Config.bars[3].absorbMaxPercent or DEFAULT_CONFIG.bars[3].absorbMaxPercent or 30
+        local cfg = GetConfig()
+        local v = (cfg and cfg.bars and cfg.bars[3] and cfg.bars[3].absorbMaxPercent) or DEFAULT_CONFIG.bars[3].absorbMaxPercent or 30
         absorbMaxPercentSlider:SetValue(v)
         _G[absorbMaxPercentSlider:GetName() .. "Text"]:SetText(v .. "% of max health (30% for Warrior Ignore Pain)")
     end
@@ -680,17 +728,21 @@ local function BuildAbsorbPanel(panel)
     optionsRefs.absorbMaxPercentSlider = absorbMaxPercentSlider
 
     local absorbColorBtn = CreateColorOption(panel, absorbMaxPercentSlider, "Shield pool bar color", function()
-        return TerninUI_Config.bars[3].color or DEFAULT_CONFIG.bars[3].color
+        local c = GetConfig()
+        return (c and c.bars and c.bars[3] and c.bars[3].color) or DEFAULT_CONFIG.bars[3].color
     end, function(r, g, b, a)
-        TerninUI_Config.bars[3].color = { r, g, b, a }
+        local c = GetConfig()
+        if c and c.bars and c.bars[3] then c.bars[3].color = { r, g, b, a } end
         if barFrames[3] then barFrames[3]:SetStatusBarColor(r, g, b, a) end
     end)
     optionsRefs.absorbColorBtn = absorbColorBtn
 
     local absorbBgColorBtn = CreateColorOption(panel, absorbColorBtn, "Backdrop color", function()
-        return TerninUI_Config.bars[3].bgColor or DEFAULT_CONFIG.bars[3].bgColor or {0, 0, 0, 1}
+        local c = GetConfig()
+        return (c and c.bars and c.bars[3] and c.bars[3].bgColor) or DEFAULT_CONFIG.bars[3].bgColor or {0, 0, 0, 1}
     end, function(r, g, b, a)
-        TerninUI_Config.bars[3].bgColor = { r, g, b, a }
+        local c = GetConfig()
+        if c and c.bars and c.bars[3] then c.bars[3].bgColor = { r, g, b, a } end
         LayoutBars()
     end)
     optionsRefs.absorbBgColorBtn = absorbBgColorBtn
@@ -800,8 +852,10 @@ end
 -- ---------------------------------------------------------------------------
 
 function OptionsRefresh()
-    local c = TerninUI_Config
+    local c = GetConfig()
     local r = optionsRefs
+    if not c then return end
+    if r.perSpecCheck and r.perSpecCheck.SetChecked then r.perSpecCheck:SetChecked(TerninUI_Config.perSpecEnabled == true) end
     if r.lockCheck and r.lockCheck.SetChecked then r.lockCheck:SetChecked(c.locked) end
     if r.spacingSlider then
         r.spacingSlider:SetValue(c.barSpacing or DEFAULT_CONFIG.barSpacing)
@@ -892,7 +946,7 @@ function OptionsRefresh()
     if r.absorbColorBtn and r.absorbColorBtn.update then r.absorbColorBtn.update() end
 
     if r.powerTypeDropdown and r.POWER_OPTIONS then
-        local currentPower = TerninUI_Config.bars[2].resource or "rage"
+        local currentPower = (c and c.bars and c.bars[2] and c.bars[2].resource) or "rage"
         UIDropDownMenu_SetSelectedValue(r.powerTypeDropdown, currentPower)
         for _, opt in ipairs(r.POWER_OPTIONS) do
             if opt.value == currentPower then
@@ -999,13 +1053,18 @@ SlashCmdList["TERNINUI"] = function(msg)
     msg = (msg or ""):lower():trim()
 
     if msg == "lock" then
-        TerninUI_Config.locked = true
+        local cfg = GetConfig()
+        if cfg then cfg.locked = true end
         ApplyLockState()
         print("|cFF00A2FFTerninUI:|r Bars locked.")
     elseif msg == "unlock" then
-        TerninUI_Config.locked = false
+        local cfg = GetConfig()
+        if cfg then cfg.locked = false end
         ApplyLockState()
         print("|cFF00A2FFTerninUI:|r Bars unlocked. Drag to move.")
+    elseif msg == "debug" then
+        print("|cFF00A2FFTerninUI:|r Hover over the bars, then run: |cFFFFFFFF/run local f=GetMouseFocus(); print(f and f:GetName() or 'nil')|r")
+        print("|cFF00A2FFTerninUI:|r This shows which frame receives mouse. If it's not TerninUI_Container, another addon may be blocking.")
     else
         if UnitAffectingCombat("player") then
             print("|cFF00A2FFTerninUI:|r Cannot open options while in combat.")
