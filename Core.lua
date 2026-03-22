@@ -53,6 +53,21 @@ ns.DEFAULT_CONFIG = {
             markerColor = {1, 1, 1, 0.9},
         },
         {
+            id = "power2",
+            type = "resource",
+            resource = "mana",
+            label = "Power Bar 2",
+            color = {0.2, 0.4, 0.9, 1},
+            height = 10,
+            width = 150,
+            bgColor = {0, 0, 0, 1},
+            bgAlpha = 30,
+            enabled = false,
+            markerEnabled = false,
+            markerValue = 30,
+            markerColor = {1, 1, 1, 0.9},
+        },
+        {
             id = "absorb",
             type = "resource",
             resource = "absorb",
@@ -140,16 +155,21 @@ end
 local function EnsureBars()
     local defaults = ns.DEFAULT_CONFIG.bars
     local bars = TerninUI_Config.bars
+    -- Migrate from 3-bar to 4-bar layout (insert Power Bar 2 before absorb)
+    if #bars == 3 and bars[3] and (bars[3].id == "absorb" or bars[3].resource == "absorb") then
+        bars[4] = bars[3]
+        bars[3] = ns.CopyTable(defaults[3] or {})
+    end
     local oldBarWidth = TerninUI_Config.barWidth
     local oldBgColor = TerninUI_Config.globalBgColor
     local oldBgAlpha = TerninUI_Config.globalBgAlpha
 
-    -- Cap at 3 bars
-    if #bars > 3 then
-        for i = 4, #bars do bars[i] = nil end
+    -- Cap at 4 bars
+    if #bars > 4 then
+        for i = 5, #bars do bars[i] = nil end
     end
 
-    for i = 1, 3 do
+    for i = 1, 4 do
         if not bars[i] then
             bars[i] = ns.CopyTable(defaults[i] or defaults[1])
         else
@@ -162,8 +182,8 @@ local function EnsureBars()
     end
 
     -- Reset absorb bar if it was the old buff type
-    if bars[3] and bars[3].type == "buff" then
-        bars[3] = ns.CopyTable(defaults[3])
+    if bars[4] and bars[4].type == "buff" then
+        bars[4] = ns.CopyTable(defaults[4])
     end
 end
 EnsureBars()
@@ -173,8 +193,8 @@ if TerninUI_Config.barStyle == "raid" then
     TerninUI_Config.barStyle = "plain"
 end
 
--- Migrate Power bar legacy fields
-local powerBar = TerninUI_Config.bars[2]
+-- Migrate Power bar legacy fields (bar 2 and bar 3)
+for _, powerBar in ipairs({TerninUI_Config.bars[2], TerninUI_Config.bars[3]}) do
 if powerBar then
     if powerBar.markerValue == nil and powerBar.markerPercent then
         powerBar.markerValue = powerBar.markerPercent
@@ -182,4 +202,5 @@ if powerBar then
     if powerBar.markerEnabled == nil and powerBar.markerUseValue == true then
         powerBar.markerEnabled = true
     end
+end
 end

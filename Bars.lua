@@ -87,6 +87,8 @@ local POWER_TYPES = {
     energy      = (Enum and Enum.PowerType and Enum.PowerType.Energy)     or 3,
     focus       = (Enum and Enum.PowerType and Enum.PowerType.Focus)     or 2,
     runic_power = (Enum and Enum.PowerType and Enum.PowerType.RunicPower) or 6,
+    fury        = (Enum and Enum.PowerType and Enum.PowerType.Fury)       or 17,
+    pain        = (Enum and Enum.PowerType and Enum.PowerType.Pain)       or 18,
 }
 
 local function GetPowerTypeForResource(resource)
@@ -217,16 +219,18 @@ function ns.LayoutBars()
             ApplyBarGradient(bar, bc[1], bc[2], bc[3], bc[4])
 
             local pct = 0
-            if def.markerEnabled and def.type == "resource" and i == 2 then
+            if def.markerEnabled and def.type == "resource" and (i == 2 or i == 3) then
                 local val = def.markerValue or def.markerPercent or 0
                 local powerType = GetPowerTypeForResource(def.resource)
-                local maxVal = powerType and UnitPowerMax(PLAYER_UNIT, powerType) or 100
+                local maxVal = (def.resource == "primary") and UnitPowerMax(PLAYER_UNIT)
+                    or (powerType and UnitPowerMax(PLAYER_UNIT, powerType))
+                    or 100
                 if maxVal and maxVal > 0 and val > 0 then
                     pct = (val / maxVal) * 100
                 end
             end
             if pct > 0 and pct < 100 and bar.marker then
-                local mc = def.markerColor or DEFAULT_CONFIG.bars[2].markerColor or {1, 1, 1, 0.9}
+                local mc = def.markerColor or (DEFAULT_CONFIG.bars[i] and DEFAULT_CONFIG.bars[i].markerColor) or {1, 1, 1, 0.9}
                 bar.marker:SetColorTexture(mc[1] or 1, mc[2] or 1, mc[3] or 1, mc[4] or 0.9)
                 local markerH = math.max(2, h - 4)
                 bar.marker:SetSize(2, markerH)
@@ -262,6 +266,13 @@ function ns.LayoutBars()
         totalHeight = 10
     end
     container:SetHeight(totalHeight)
+
+    -- Refresh bar values after layout (SetStatusBarTexture can reset internal state; defer to next frame)
+    if C_Timer and C_Timer.After then
+        C_Timer.After(0, function() ns.UpdateAllBars("LayoutBars", PLAYER_UNIT) end)
+    else
+        ns.UpdateAllBars("LayoutBars", PLAYER_UNIT)
+    end
 end
 
 local function CreateBars()
@@ -329,9 +340,25 @@ local function UpdateResourceBar(bar, def)
     if def.resource == "health" then
         cur = UnitHealth(PLAYER_UNIT)
         max = UnitHealthMax(PLAYER_UNIT)
+    elseif def.resource == "primary" then
+        -- Auto: use player's current primary power (Fury for Devourer in VM, Havoc; Pain for Vengeance; etc.)
+        cur = UnitPower(PLAYER_UNIT)
+        max = UnitPowerMax(PLAYER_UNIT)
     elseif powerType then
-        cur = UnitPower(PLAYER_UNIT, powerType)
-        max = UnitPowerMax(PLAYER_UNIT, powerType)
+        -- Prefer UnitPower() without powerType when player's primary matches (most reliable for Fury, Pain, etc.)
+        local primaryType = UnitPowerType(PLAYER_UNIT)
+        if primaryType == powerType then
+            cur = UnitPower(PLAYER_UNIT)
+            max = UnitPowerMax(PLAYER_UNIT)
+        else
+            cur = UnitPower(PLAYER_UNIT, powerType)
+            max = UnitPowerMax(PLAYER_UNIT, powerType)
+        end
+        -- Fallback: if explicit type returns zeros but player has primary power, use it
+        if (not cur or cur == 0) and (not max or max <= 1) and primaryType then
+            cur = UnitPower(PLAYER_UNIT)
+            max = UnitPowerMax(PLAYER_UNIT)
+        end
     elseif def.resource == "absorb" then
         cur = UnitGetTotalAbsorbs(PLAYER_UNIT) or 0
         local pct = (def.absorbMaxPercent or 30) / 100
@@ -352,7 +379,7 @@ local function UpdateResourceBar(bar, def)
         if pct > 0 and pct < 100 then
             local w = def.width or 150
             local h = def.height or 18
-            local mc = def.markerColor or DEFAULT_CONFIG.bars[2].markerColor or {1, 1, 1, 0.9}
+            local mc = def.markerColor or {1, 1, 1, 0.9}
             bar.marker:SetColorTexture(mc[1] or 1, mc[2] or 1, mc[3] or 1, mc[4] or 0.9)
             bar.marker:SetSize(2, math.max(2, h - 4))
             bar.marker:ClearAllPoints()
@@ -392,6 +419,7 @@ container:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
 container:RegisterEvent("UNIT_HEALTH")
 container:RegisterEvent("UNIT_MAXHEALTH")
 container:RegisterEvent("UNIT_POWER_UPDATE")
+container:RegisterEvent("UNIT_POWER_FREQUENT")
 container:RegisterEvent("UNIT_MAXPOWER")
 container:RegisterEvent("UNIT_AURA")
 container:RegisterEvent("UNIT_ABSORB_AMOUNT_CHANGED")
@@ -401,6 +429,7 @@ container:SetScript("OnEvent", function(self, event, arg1, ...)
     if event == "PLAYER_ENTERING_WORLD" then
         ApplyContainerPosition()
         ns.LayoutBars()
+        ns.UpdateAllBars(event, "player")  -- arg1 is isInitialLogin, not unit - pass "player" explicitly
     end
 
     if event == "PLAYER_SPECIALIZATION_CHANGED" and arg1 == "player" then
@@ -413,9 +442,8 @@ container:SetScript("OnEvent", function(self, event, arg1, ...)
     end
 
     if event == "UNIT_HEALTH" or event == "UNIT_MAXHEALTH" or
-       event == "UNIT_POWER_UPDATE" or event == "UNIT_MAXPOWER" or
-       event == "UNIT_AURA" or event == "PLAYER_ENTERING_WORLD" or
-       event == "UNIT_ABSORB_AMOUNT_CHANGED" then
+       event == "UNIT_POWER_UPDATE" or event == "UNIT_POWER_FREQUENT" or event == "UNIT_MAXPOWER" or
+       event == "UNIT_AURA" or event == "UNIT_ABSORB_AMOUNT_CHANGED" then
         ns.UpdateAllBars(event, arg1)
     end
 end)

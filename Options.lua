@@ -13,7 +13,7 @@ local ApplyContainerPosition = ns.ApplyContainerPosition
 local barFrames = ns.barFrames
 
 local PAD = 24
-local OPTIONS_CONTENT_H = 600
+local OPTIONS_CONTENT_H = 940
 
 -- ---------------------------------------------------------------------------
 -- UI helpers
@@ -567,11 +567,14 @@ local function BuildPowerPanel(panel)
     optionsRefs.markerColorBtn = markerColorBtn
 
     local POWER_OPTIONS = {
+        { value = "primary", text = "Auto (class resource)" },
         { value = "rage", text = "Rage" },
         { value = "mana", text = "Mana" },
         { value = "energy", text = "Energy" },
         { value = "focus", text = "Focus" },
         { value = "runic_power", text = "Runic Power" },
+        { value = "fury", text = "Fury" },
+        { value = "pain", text = "Pain" },
     }
     local powerTypeRow = CreateFrame("Frame", nil, panel)
     powerTypeRow:SetPoint("TOPLEFT", markerColorRow, "BOTTOMLEFT", 0, -14)
@@ -675,6 +678,230 @@ local function BuildPowerPanel(panel)
     optionsRefs.powerBgAlphaSlider = CreateBgAlphaSlider(panel, 2, powerBgColorBtn)
 end
 
+local function BuildPower2Panel(panel)
+    local power2Header = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    power2Header:SetPoint("TOPLEFT", panel, "TOPLEFT", PAD, -16)
+    power2Header:SetText("Power Bar 2")
+    power2Header:SetTextColor(1, 0.82, 0)
+
+    local power2Check = CreateEnableCheckbox(panel, power2Header, "Enable Power Bar 2",
+        function() local c = GetConfig(); return c and c.bars and c.bars[3] and c.bars[3].enabled ~= false end,
+        function(enabled)
+            local c = GetConfig()
+            if c and c.bars and c.bars[3] then c.bars[3].enabled = enabled end
+            LayoutBars()
+            UpdateAllBars("UNIT_POWER_UPDATE", "player")
+        end)
+    optionsRefs.power2Check = power2Check
+
+    local power2WidthSlider = CreateWidthSlider(panel, 3, power2Check, "Power Bar 2")
+    optionsRefs.power2WidthSlider = power2WidthSlider
+
+    local power2HeightSlider = CreateHeightSlider(panel, 3, power2WidthSlider, "Power Bar 2")
+    optionsRefs.power2HeightSlider = power2HeightSlider
+
+    local power2MarkerEnabledCheck = CreateEnableCheckbox(panel, power2HeightSlider, "Enable marker",
+        function() local c = GetConfig(); return c and c.bars and c.bars[3] and c.bars[3].markerEnabled == true end,
+        function(enabled)
+            local c = GetConfig()
+            if c and c.bars and c.bars[3] then c.bars[3].markerEnabled = enabled end
+            LayoutBars()
+            UpdateAllBars("UNIT_POWER_UPDATE", "player")
+        end)
+    optionsRefs.power2MarkerEnabledCheck = power2MarkerEnabledCheck
+
+    local power2MarkerValueSlider = CreateFrame("Slider", "$parent_Power2MarkerValue", panel, "OptionsSliderTemplate")
+    power2MarkerValueSlider:SetPoint("TOPLEFT", power2MarkerEnabledCheck, "BOTTOMLEFT", 0, -28)
+    power2MarkerValueSlider:SetPoint("RIGHT", panel, "RIGHT", -PAD, 0)
+    power2MarkerValueSlider:SetMinMaxValues(0, 200)
+    power2MarkerValueSlider:SetValueStep(1)
+    _G[power2MarkerValueSlider:GetName() .. "Low"]:SetText("0")
+    _G[power2MarkerValueSlider:GetName() .. "High"]:SetText("200")
+    _G[power2MarkerValueSlider:GetName() .. "Text"]:SetText("Resource value (e.g. 30 fury)")
+    power2MarkerValueSlider:SetScript("OnValueChanged", function(self, value)
+        value = math.floor(value + 0.5)
+        local c = GetConfig()
+        if c and c.bars and c.bars[3] then c.bars[3].markerValue = value end
+        _G[self:GetName() .. "Text"]:SetText("Resource value: " .. value .. " (e.g. 30 fury)")
+        LayoutBars()
+        UpdateAllBars("UNIT_POWER_UPDATE", "player")
+    end)
+    do
+        local cfg = GetConfig()
+        local v = (cfg and cfg.bars and cfg.bars[3] and (cfg.bars[3].markerValue or cfg.bars[3].markerPercent)) or 30
+        power2MarkerValueSlider:SetValue(v)
+        _G[power2MarkerValueSlider:GetName() .. "Text"]:SetText("Resource value: " .. v .. " (e.g. 30 fury)")
+    end
+    CleanSliderStyle(power2MarkerValueSlider)
+    optionsRefs.power2MarkerValueSlider = power2MarkerValueSlider
+
+    local power2MarkerColorRow = CreateFrame("Frame", nil, panel)
+    power2MarkerColorRow:SetPoint("TOPLEFT", power2MarkerValueSlider, "BOTTOMLEFT", 0, -14)
+    power2MarkerColorRow:SetPoint("LEFT", panel, "LEFT", PAD, 0)
+    power2MarkerColorRow:SetPoint("RIGHT", panel, "RIGHT", -PAD, 0)
+    power2MarkerColorRow:SetHeight(24)
+    local power2MarkerColorBtn = CreateFrame("Button", nil, power2MarkerColorRow)
+    power2MarkerColorBtn:SetSize(20, 20)
+    power2MarkerColorBtn:SetPoint("LEFT", power2MarkerColorRow, "LEFT", 0, 0)
+    local power2MarkerColorLabel = power2MarkerColorRow:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    power2MarkerColorLabel:SetPoint("LEFT", power2MarkerColorBtn, "RIGHT", 8, 0)
+    power2MarkerColorLabel:SetText("Marker color")
+    power2MarkerColorLabel:SetTextColor(1, 0.82, 0)
+    power2MarkerColorBtn.tex = power2MarkerColorBtn:CreateTexture(nil, "BACKGROUND")
+    power2MarkerColorBtn.tex:SetAllPoints(true)
+    if power2MarkerColorBtn.SetBackdrop then
+        power2MarkerColorBtn:SetBackdrop({ edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 8, insets = { left = 2, right = 2, top = 2, bottom = 2 } })
+        power2MarkerColorBtn:SetBackdropBorderColor(0.5, 0.5, 0.5, 0.8)
+    end
+    local function updatePower2MarkerColorSwatch()
+        local cfg = GetConfig()
+        local c = (cfg and cfg.bars and cfg.bars[3] and cfg.bars[3].markerColor) or DEFAULT_CONFIG.bars[3].markerColor or {1, 1, 1, 0.9}
+        power2MarkerColorBtn.tex:SetColorTexture(c[1] or 1, c[2] or 1, c[3] or 1, 1)
+    end
+    power2MarkerColorBtn.update = updatePower2MarkerColorSwatch
+    power2MarkerColorBtn:SetScript("OnClick", function()
+        if ColorPickerFrame and ColorPickerFrame.SetupColorPickerAndShow then
+            local cfg = GetConfig()
+            local c = (cfg and cfg.bars and cfg.bars[3] and cfg.bars[3].markerColor) or DEFAULT_CONFIG.bars[3].markerColor or {1, 1, 1, 0.9}
+            local r, g, b, a = c[1] or 1, c[2] or 1, c[3] or 1, c[4] or 1
+            ColorPickerFrame.previousValues = { r = r, g = g, b = b, a = a }
+            ColorPickerFrame:SetupColorPickerAndShow({
+                r = r, g = g, b = b, opacity = a or 1, hasOpacity = true,
+                swatchFunc = function()
+                    local nr, ng, nb = ColorPickerFrame:GetColorRGB()
+                    local na = (ColorPickerFrame.GetColorAlpha and ColorPickerFrame:GetColorAlpha()) or 1
+                    local cfg = GetConfig()
+                    if cfg and cfg.bars and cfg.bars[3] then cfg.bars[3].markerColor = { nr, ng, nb, na } end
+                    updatePower2MarkerColorSwatch()
+                    LayoutBars()
+                end,
+                cancelFunc = function()
+                    local prev = ColorPickerFrame.previousValues
+                    if prev then
+                        local cfg = GetConfig()
+                        if cfg and cfg.bars and cfg.bars[3] then cfg.bars[3].markerColor = { prev.r or 1, prev.g or 1, prev.b or 1, prev.a or 1 } end
+                        updatePower2MarkerColorSwatch()
+                        LayoutBars()
+                    end
+                end
+            })
+        end
+    end)
+    updatePower2MarkerColorSwatch()
+    optionsRefs.power2MarkerColorBtn = power2MarkerColorBtn
+
+    local POWER_OPTIONS = {
+        { value = "primary", text = "Auto (class resource)" },
+        { value = "rage", text = "Rage" },
+        { value = "mana", text = "Mana" },
+        { value = "energy", text = "Energy" },
+        { value = "focus", text = "Focus" },
+        { value = "runic_power", text = "Runic Power" },
+        { value = "fury", text = "Fury" },
+        { value = "pain", text = "Pain" },
+    }
+    local power2TypeRow = CreateFrame("Frame", nil, panel)
+    power2TypeRow:SetPoint("TOPLEFT", power2MarkerColorRow, "BOTTOMLEFT", 0, -14)
+    power2TypeRow:SetPoint("LEFT", panel, "LEFT", PAD, 0)
+    power2TypeRow:SetPoint("RIGHT", panel, "RIGHT", -PAD, 0)
+    power2TypeRow:SetHeight(28)
+    local power2TypeDropdown = CreateFrame("Frame", "$parent_Power2Type", power2TypeRow, "UIDropDownMenuTemplate")
+    power2TypeDropdown:SetPoint("LEFT", power2TypeRow, "LEFT", 0, 0)
+    local power2TypeLabel = power2TypeRow:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    power2TypeLabel:SetPoint("LEFT", power2TypeDropdown, "RIGHT", 8, 0)
+    power2TypeLabel:SetText("Power type")
+    power2TypeLabel:SetTextColor(1, 0.82, 0)
+    UIDropDownMenu_SetWidth(power2TypeDropdown, 120)
+    local function Power2TypeDropdown_Initialize(self, level)
+        local info = UIDropDownMenu_CreateInfo()
+        for _, opt in ipairs(POWER_OPTIONS) do
+            info.text = opt.text
+            info.value = opt.value
+            info.func = function(button)
+                local c = GetConfig()
+                if c and c.bars and c.bars[3] then
+                    c.bars[3].resource = opt.value
+                    c.bars[3].label = opt.text
+                end
+                UIDropDownMenu_SetSelectedValue(power2TypeDropdown, opt.value)
+                if UIDropDownMenu_SetText then UIDropDownMenu_SetText(power2TypeDropdown, opt.text) end
+            end
+            info.checked = (function() local c = GetConfig(); return c and c.bars and c.bars[3] and c.bars[3].resource == opt.value end)()
+            UIDropDownMenu_AddButton(info, level)
+        end
+    end
+    UIDropDownMenu_Initialize(power2TypeDropdown, Power2TypeDropdown_Initialize)
+    optionsRefs.power2TypeDropdown = power2TypeDropdown
+    optionsRefs.POWER_OPTIONS_2 = POWER_OPTIONS
+
+    local power2BarColorRow = CreateFrame("Frame", nil, panel)
+    power2BarColorRow:SetPoint("TOPLEFT", power2TypeRow, "BOTTOMLEFT", 0, -14)
+    power2BarColorRow:SetPoint("LEFT", panel, "LEFT", PAD, 0)
+    power2BarColorRow:SetPoint("RIGHT", panel, "RIGHT", -PAD, 0)
+    power2BarColorRow:SetHeight(24)
+    local power2BarColorBtn = CreateFrame("Button", nil, power2BarColorRow)
+    power2BarColorBtn:SetSize(20, 20)
+    power2BarColorBtn:SetPoint("LEFT", power2BarColorRow, "LEFT", 0, 0)
+    local power2BarColorLabel = power2BarColorRow:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    power2BarColorLabel:SetPoint("LEFT", power2BarColorBtn, "RIGHT", 8, 0)
+    power2BarColorLabel:SetText("Power Bar 2 color")
+    power2BarColorLabel:SetTextColor(1, 0.82, 0)
+    power2BarColorBtn.tex = power2BarColorBtn:CreateTexture(nil, "BACKGROUND")
+    power2BarColorBtn:SetAllPoints(true)
+    if power2BarColorBtn.SetBackdrop then
+        power2BarColorBtn:SetBackdrop({ edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 8, insets = { left = 2, right = 2, top = 2, bottom = 2 } })
+        power2BarColorBtn:SetBackdropBorderColor(0.5, 0.5, 0.5, 0.8)
+    end
+    local function updatePower2BarColorSwatch()
+        local cfg = GetConfig()
+        local c = (cfg and cfg.bars and cfg.bars[3] and cfg.bars[3].color) or DEFAULT_CONFIG.bars[3].color
+        power2BarColorBtn.tex:SetColorTexture(c[1] or 1, c[2] or 1, c[3] or 1, 1)
+    end
+    power2BarColorBtn.update = updatePower2BarColorSwatch
+    power2BarColorBtn:SetScript("OnClick", function()
+        if ColorPickerFrame and ColorPickerFrame.SetupColorPickerAndShow then
+            local cfg = GetConfig()
+            local c = (cfg and cfg.bars and cfg.bars[3] and cfg.bars[3].color) or DEFAULT_CONFIG.bars[3].color
+            local r, g, b, a = c[1] or 1, c[2] or 1, c[3] or 1, c[4] or 1
+            ColorPickerFrame.previousValues = { r = r, g = g, b = b, a = a }
+            ColorPickerFrame:SetupColorPickerAndShow({
+                r = r, g = g, b = b, opacity = a or 1, hasOpacity = true,
+                swatchFunc = function()
+                    local nr, ng, nb = ColorPickerFrame:GetColorRGB()
+                    local na = (ColorPickerFrame.GetColorAlpha and ColorPickerFrame:GetColorAlpha()) or 1
+                    local cfg = GetConfig()
+                    if cfg and cfg.bars and cfg.bars[3] then cfg.bars[3].color = { nr, ng, nb, na } end
+                    if barFrames[3] then barFrames[3]:SetStatusBarColor(nr, ng, nb, na) end
+                    updatePower2BarColorSwatch()
+                end,
+                cancelFunc = function()
+                    local prev = ColorPickerFrame.previousValues
+                    if prev then
+                        local cfg = GetConfig()
+                        if cfg and cfg.bars and cfg.bars[3] then cfg.bars[3].color = { prev.r or 1, prev.g or 1, prev.b or 1, prev.a or 1 } end
+                        if barFrames[3] then barFrames[3]:SetStatusBarColor(prev.r or 1, prev.g or 1, prev.b or 1, prev.a or 1) end
+                        updatePower2BarColorSwatch()
+                    end
+                end
+            })
+        end
+    end)
+    updatePower2BarColorSwatch()
+    optionsRefs.power2BarColorBtn = power2BarColorBtn
+
+    local power2BgColorBtn = CreateColorOption(panel, power2BarColorRow, "Backdrop color", function()
+        local c = GetConfig()
+        return (c and c.bars and c.bars[3] and c.bars[3].bgColor) or DEFAULT_CONFIG.bars[3].bgColor or {0, 0, 0, 1}
+    end, function(r, g, b, a)
+        local c = GetConfig()
+        if c and c.bars and c.bars[3] then c.bars[3].bgColor = { r, g, b, a } end
+        LayoutBars()
+    end)
+    optionsRefs.power2BgColorBtn = power2BgColorBtn
+
+    optionsRefs.power2BgAlphaSlider = CreateBgAlphaSlider(panel, 3, power2BgColorBtn)
+end
+
 local function BuildAbsorbPanel(panel)
     local header = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
     header:SetPoint("TOPLEFT", panel, "TOPLEFT", PAD, -16)
@@ -687,19 +914,19 @@ local function BuildAbsorbPanel(panel)
     hint:SetTextColor(0.7, 0.7, 0.7)
 
     local absorbCheck = CreateEnableCheckbox(panel, hint, "Enable Shield Pool",
-        function() local c = GetConfig(); return c and c.bars and c.bars[3] and c.bars[3].enabled ~= false end,
+        function() local c = GetConfig(); return c and c.bars and c.bars[4] and c.bars[4].enabled ~= false end,
         function(enabled)
             local c = GetConfig()
-            if c and c.bars and c.bars[3] then c.bars[3].enabled = enabled end
+            if c and c.bars and c.bars[4] then c.bars[4].enabled = enabled end
             LayoutBars()
             UpdateAllBars("UNIT_ABSORB_AMOUNT_CHANGED", "player")
         end)
     optionsRefs.absorbCheck = absorbCheck
 
-    local absorbWidthSlider = CreateWidthSlider(panel, 3, absorbCheck, "Shield pool bar")
+    local absorbWidthSlider = CreateWidthSlider(panel, 4, absorbCheck, "Shield pool bar")
     optionsRefs.absorbWidthSlider = absorbWidthSlider
 
-    local absorbHeightSlider = CreateHeightSlider(panel, 3, absorbWidthSlider, "Shield pool bar")
+    local absorbHeightSlider = CreateHeightSlider(panel, 4, absorbWidthSlider, "Shield pool bar")
     optionsRefs.absorbHeightSlider = absorbHeightSlider
 
     local absorbMaxPercentSlider = CreateFrame("Slider", "$parent_AbsorbMaxPercent", panel, "OptionsSliderTemplate")
@@ -713,14 +940,14 @@ local function BuildAbsorbPanel(panel)
     absorbMaxPercentSlider:SetScript("OnValueChanged", function(self, value)
         value = math.floor(value + 0.5)
         local c = GetConfig()
-        if c and c.bars and c.bars[3] then c.bars[3].absorbMaxPercent = value end
+        if c and c.bars and c.bars[4] then c.bars[4].absorbMaxPercent = value end
         _G[self:GetName() .. "Text"]:SetText(value .. "% of max health (30% for Warrior Ignore Pain)")
         LayoutBars()
         UpdateAllBars("UNIT_ABSORB_AMOUNT_CHANGED", "player")
     end)
     do
         local cfg = GetConfig()
-        local v = (cfg and cfg.bars and cfg.bars[3] and cfg.bars[3].absorbMaxPercent) or DEFAULT_CONFIG.bars[3].absorbMaxPercent or 30
+        local v = (cfg and cfg.bars and cfg.bars[4] and cfg.bars[4].absorbMaxPercent) or DEFAULT_CONFIG.bars[4].absorbMaxPercent or 30
         absorbMaxPercentSlider:SetValue(v)
         _G[absorbMaxPercentSlider:GetName() .. "Text"]:SetText(v .. "% of max health (30% for Warrior Ignore Pain)")
     end
@@ -729,32 +956,32 @@ local function BuildAbsorbPanel(panel)
 
     local absorbColorBtn = CreateColorOption(panel, absorbMaxPercentSlider, "Shield pool bar color", function()
         local c = GetConfig()
-        return (c and c.bars and c.bars[3] and c.bars[3].color) or DEFAULT_CONFIG.bars[3].color
+        return (c and c.bars and c.bars[4] and c.bars[4].color) or DEFAULT_CONFIG.bars[4].color
     end, function(r, g, b, a)
         local c = GetConfig()
-        if c and c.bars and c.bars[3] then c.bars[3].color = { r, g, b, a } end
-        if barFrames[3] then barFrames[3]:SetStatusBarColor(r, g, b, a) end
+        if c and c.bars and c.bars[4] then c.bars[4].color = { r, g, b, a } end
+        if barFrames[4] then barFrames[4]:SetStatusBarColor(r, g, b, a) end
     end)
     optionsRefs.absorbColorBtn = absorbColorBtn
 
     local absorbBgColorBtn = CreateColorOption(panel, absorbColorBtn, "Backdrop color", function()
         local c = GetConfig()
-        return (c and c.bars and c.bars[3] and c.bars[3].bgColor) or DEFAULT_CONFIG.bars[3].bgColor or {0, 0, 0, 1}
+        return (c and c.bars and c.bars[4] and c.bars[4].bgColor) or DEFAULT_CONFIG.bars[4].bgColor or {0, 0, 0, 1}
     end, function(r, g, b, a)
         local c = GetConfig()
-        if c and c.bars and c.bars[3] then c.bars[3].bgColor = { r, g, b, a } end
+        if c and c.bars and c.bars[4] then c.bars[4].bgColor = { r, g, b, a } end
         LayoutBars()
     end)
     optionsRefs.absorbBgColorBtn = absorbBgColorBtn
 
-    optionsRefs.absorbBgAlphaSlider = CreateBgAlphaSlider(panel, 3, absorbBgColorBtn)
+    optionsRefs.absorbBgAlphaSlider = CreateBgAlphaSlider(panel, 4, absorbBgColorBtn)
 end
 
 -- ---------------------------------------------------------------------------
 -- Settings registration (WoW Settings UI or legacy Interface Options)
 -- ---------------------------------------------------------------------------
 
-local healthWrapper, powerWrapper, buffBarsWrapper
+local healthWrapper, powerWrapper, power2Wrapper, buffBarsWrapper
 local optionsWrapper, optionsContent
 
 local terninUICategory
@@ -772,6 +999,7 @@ if Settings and Settings.RegisterCanvasLayoutSubcategory then
 
     healthWrapper = CreateSubcategoryWrapper("HealthBar", 220)
     powerWrapper = CreateSubcategoryWrapper("PowerBar", 320)
+    power2Wrapper = CreateSubcategoryWrapper("PowerBar2", 320)
     buffBarsWrapper = CreateSubcategoryWrapper("BuffBars", 320)
     local function RefreshOnShow()
         if C_Timer and C_Timer.After then
@@ -780,18 +1008,20 @@ if Settings and Settings.RegisterCanvasLayoutSubcategory then
             OptionsRefresh()
         end
     end
-    for _, w in ipairs({ parentFrame, healthWrapper, powerWrapper, buffBarsWrapper }) do
+    for _, w in ipairs({ parentFrame, healthWrapper, powerWrapper, power2Wrapper, buffBarsWrapper }) do
         w:SetScript("OnShow", RefreshOnShow)
     end
 
     BuildDefaultBarsPanel(parentContent)
     BuildHealthPanel(healthWrapper.content)
     BuildPowerPanel(powerWrapper.content)
+    BuildPower2Panel(power2Wrapper.content)
     BuildAbsorbPanel(buffBarsWrapper.content)
 
     terninUICategory = Settings.RegisterCanvasLayoutCategory(parentFrame, "TerninUI")
     Settings.RegisterCanvasLayoutSubcategory(terninUICategory, healthWrapper, "Health Bar")
     Settings.RegisterCanvasLayoutSubcategory(terninUICategory, powerWrapper, "Power Bar")
+    Settings.RegisterCanvasLayoutSubcategory(terninUICategory, power2Wrapper, "Power Bar 2")
     Settings.RegisterCanvasLayoutSubcategory(terninUICategory, buffBarsWrapper, "Shield Pool")
     Settings.RegisterAddOnCategory(terninUICategory)
     optionsWrapper = parentFrame
@@ -824,8 +1054,14 @@ else
     powerContent:SetHeight(320)
     BuildPowerPanel(powerContent)
 
+    local power2Content = CreateFrame("Frame", nil, optionsContent)
+    power2Content:SetPoint("TOPLEFT", powerContent, "BOTTOMLEFT", 0, -20)
+    power2Content:SetPoint("RIGHT", optionsContent, "RIGHT", 0, 0)
+    power2Content:SetHeight(320)
+    BuildPower2Panel(power2Content)
+
     local buffBarsContent = CreateFrame("Frame", nil, optionsContent)
-    buffBarsContent:SetPoint("TOPLEFT", powerContent, "BOTTOMLEFT", 0, -20)
+    buffBarsContent:SetPoint("TOPLEFT", power2Content, "BOTTOMLEFT", 0, -20)
     buffBarsContent:SetPoint("RIGHT", optionsContent, "RIGHT", 0, 0)
     buffBarsContent:SetHeight(280)
     BuildAbsorbPanel(buffBarsContent)
@@ -891,7 +1127,9 @@ function OptionsRefresh()
     if r.healthCheck and r.healthCheck.SetChecked then r.healthCheck:SetChecked(c.bars[1].enabled ~= false) end
     if r.rageCheck and r.rageCheck.SetChecked then r.rageCheck:SetChecked(c.bars[2].enabled ~= false) end
     if r.markerEnabledCheck and r.markerEnabledCheck.SetChecked then r.markerEnabledCheck:SetChecked(c.bars[2].markerEnabled == true) end
-    if r.absorbCheck and r.absorbCheck.SetChecked then r.absorbCheck:SetChecked(c.bars[3] and c.bars[3].enabled ~= false) end
+    if r.power2Check and r.power2Check.SetChecked then r.power2Check:SetChecked(c.bars[3] and c.bars[3].enabled ~= false) end
+    if r.power2MarkerEnabledCheck and r.power2MarkerEnabledCheck.SetChecked then r.power2MarkerEnabledCheck:SetChecked(c.bars[3] and c.bars[3].markerEnabled == true) end
+    if r.absorbCheck and r.absorbCheck.SetChecked then r.absorbCheck:SetChecked(c.bars[4] and c.bars[4].enabled ~= false) end
 
     if r.healthWidthSlider then
         r.healthWidthSlider:SetValue(c.bars[1].width or DEFAULT_CONFIG.bars[1].width or 150)
@@ -917,15 +1155,42 @@ function OptionsRefresh()
         r.powerBgAlphaSlider:SetValue(v)
         _G[r.powerBgAlphaSlider:GetName() .. "Text"]:SetText("Backdrop transparency: " .. v .. "%")
     end
-    if r.absorbWidthSlider and c.bars[3] then
-        r.absorbWidthSlider:SetValue(c.bars[3].width or DEFAULT_CONFIG.bars[3].width or 150)
-        _G[r.absorbWidthSlider:GetName() .. "Text"]:SetText("Shield pool bar width: " .. (c.bars[3].width or 150))
+    if r.power2WidthSlider and c.bars[3] then
+        r.power2WidthSlider:SetValue(c.bars[3].width or DEFAULT_CONFIG.bars[3].width or 150)
+        _G[r.power2WidthSlider:GetName() .. "Text"]:SetText("Power Bar 2 width: " .. (c.bars[3].width or 150))
     end
-    if r.absorbHeightSlider and c.bars[3] then r.absorbHeightSlider:SetValue(c.bars[3].height or DEFAULT_CONFIG.bars[3].height) end
-    if r.absorbBgColorBtn and r.absorbBgColorBtn.update then r.absorbBgColorBtn.update() end
-    if r.absorbBgAlphaSlider and c.bars[3] then
+    if r.power2HeightSlider and c.bars[3] then r.power2HeightSlider:SetValue(c.bars[3].height or DEFAULT_CONFIG.bars[3].height) end
+    if r.power2BgColorBtn and r.power2BgColorBtn.update then r.power2BgColorBtn.update() end
+    if r.power2BgAlphaSlider and c.bars[3] then
         local v = c.bars[3].bgAlpha
         if v == nil then v = DEFAULT_CONFIG.bars[3].bgAlpha or 0 end
+        r.power2BgAlphaSlider:SetValue(v)
+        _G[r.power2BgAlphaSlider:GetName() .. "Text"]:SetText("Backdrop transparency: " .. v .. "%")
+    end
+    if r.power2MarkerValueSlider and c.bars and c.bars[3] then
+        local v = c.bars[3].markerValue or c.bars[3].markerPercent or 30
+        r.power2MarkerValueSlider:SetValue(v)
+        _G[r.power2MarkerValueSlider:GetName() .. "Text"]:SetText("Resource value: " .. v .. " (e.g. 30 fury)")
+    end
+    if r.power2TypeDropdown and r.POWER_OPTIONS_2 then
+        local currentPower = (c and c.bars and c.bars[3] and c.bars[3].resource) or "mana"
+        UIDropDownMenu_SetSelectedValue(r.power2TypeDropdown, currentPower)
+        for _, opt in ipairs(r.POWER_OPTIONS_2) do
+            if opt.value == currentPower then
+                if UIDropDownMenu_SetText then UIDropDownMenu_SetText(r.power2TypeDropdown, opt.text) end
+                break
+            end
+        end
+    end
+    if r.absorbWidthSlider and c.bars[4] then
+        r.absorbWidthSlider:SetValue(c.bars[4].width or DEFAULT_CONFIG.bars[4].width or 150)
+        _G[r.absorbWidthSlider:GetName() .. "Text"]:SetText("Shield pool bar width: " .. (c.bars[4].width or 150))
+    end
+    if r.absorbHeightSlider and c.bars[4] then r.absorbHeightSlider:SetValue(c.bars[4].height or DEFAULT_CONFIG.bars[4].height) end
+    if r.absorbBgColorBtn and r.absorbBgColorBtn.update then r.absorbBgColorBtn.update() end
+    if r.absorbBgAlphaSlider and c.bars[4] then
+        local v = c.bars[4].bgAlpha
+        if v == nil then v = DEFAULT_CONFIG.bars[4].bgAlpha or 0 end
         r.absorbBgAlphaSlider:SetValue(v)
         _G[r.absorbBgAlphaSlider:GetName() .. "Text"]:SetText("Backdrop transparency: " .. v .. "%")
     end
@@ -934,8 +1199,8 @@ function OptionsRefresh()
         r.markerValueSlider:SetValue(v)
         _G[r.markerValueSlider:GetName() .. "Text"]:SetText("Resource value: " .. v .. " (e.g. 30 rage)")
     end
-    if r.absorbMaxPercentSlider and c.bars and c.bars[3] then
-        local v = c.bars[3].absorbMaxPercent or DEFAULT_CONFIG.bars[3].absorbMaxPercent or 30
+    if r.absorbMaxPercentSlider and c.bars and c.bars[4] then
+        local v = c.bars[4].absorbMaxPercent or DEFAULT_CONFIG.bars[4].absorbMaxPercent or 30
         r.absorbMaxPercentSlider:SetValue(v)
         _G[r.absorbMaxPercentSlider:GetName() .. "Text"]:SetText(v .. "% of max health (30% for Warrior Ignore Pain)")
     end
@@ -943,6 +1208,8 @@ function OptionsRefresh()
     if r.healthBarColorBtn and r.healthBarColorBtn.update then r.healthBarColorBtn.update() end
     if r.rageBarColorBtn and r.rageBarColorBtn.update then r.rageBarColorBtn.update() end
     if r.markerColorBtn and r.markerColorBtn.update then r.markerColorBtn.update() end
+    if r.power2BarColorBtn and r.power2BarColorBtn.update then r.power2BarColorBtn.update() end
+    if r.power2MarkerColorBtn and r.power2MarkerColorBtn.update then r.power2MarkerColorBtn.update() end
     if r.absorbColorBtn and r.absorbColorBtn.update then r.absorbColorBtn.update() end
 
     if r.powerTypeDropdown and r.POWER_OPTIONS then
